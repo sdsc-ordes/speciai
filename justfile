@@ -6,7 +6,7 @@ output_dir := root_dir / ".output"
 build_dir := output_dir / "build"
 
 mod nix "./tools/just/nix.just"
-mod changelog "./tools/just/changelog.just"
+mod external "./tools/just/external.just"
 
 # Default target if you do not specify a target.
 default:
