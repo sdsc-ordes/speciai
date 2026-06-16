@@ -14,7 +14,6 @@
 
     languages.python = {
       enable = true;
-      directory = "src/speciai";
       venv.enable = true;
       uv = {
         enable = true;

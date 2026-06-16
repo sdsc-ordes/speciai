@@ -57,6 +57,7 @@
             findutils
             gettext
             git
+            git-cliff
             jq
             just
             (import ./packages/treefmt.nix { inherit inputs pkgs; })
