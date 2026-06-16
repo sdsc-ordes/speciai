@@ -17,7 +17,8 @@ jobs:
       - uses: ./.github/actions/setup-nix
       - name: treefmt
         run: |
-          just format --fail-on-change --no-cache ||
+          nix develop --no-pure-eval --accept-flake-config "./tools/nix#ci" --command \
+            just format --fail-on-change --no-cache ||
           {
             echo "You have not formatted these files: run 'just format' locally!"
             echo "Note: For stability -> run it over Nix: 'just develop just format'"

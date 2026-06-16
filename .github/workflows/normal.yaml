@@ -16,7 +16,9 @@ jobs:
       - uses: actions/checkout@v4
       - uses: ./.github/actions/setup-nix
       - name: lint
-        run: just ci just lint
+        run: |
+          nix develop --no-pure-eval --accept-flake-config "./tools/nix#ci" --command \
+            just ci just lint
 
   build:
     runs-on: ubuntu-latest
@@ -24,7 +26,9 @@ jobs:
       - uses: actions/checkout@v4
       - uses: ./.github/actions/setup-nix
       - name: build
-        run: just ci just build
+        run: |
+          nix develop --no-pure-eval --accept-flake-config "./tools/nix#ci" --command \
+          just ci just build
 
   test:
     runs-on: ubuntu-latest
@@ -32,4 +36,7 @@ jobs:
       - uses: actions/checkout@v4
       - uses: ./.github/actions/setup-nix
       - name: test
-        run: just ci just test
+        run: |
+          nix develop --no-pure-eval --accept-flake-config "./tools/nix#ci" --command \
+            just ci just test
+

@@ -1,5 +1,5 @@
 {
-  description = "deid-module devshell";
+  description = "speciai development environment";
 
   nixConfig = {
     extra-substituters = [
@@ -49,9 +49,7 @@
           # inherit from nixpkgs
           pkgs = nixpkgs.legacyPackages.${system};
 
-          # Things needed only at compile-time.
-          packagesBasic = with pkgs; [
-            age
+          baseTools = with pkgs; [
             bash
             coreutils
             curl
@@ -59,46 +57,39 @@
             findutils
             gettext
             git
-            kubernetes-helm
-            k9s
             jq
             just
-            kubectl
-            minikube
-            sops
             (import ./packages/treefmt.nix { inherit inputs pkgs; })
             vendir
-            zsh
             yamlfmt
-            ytt
           ];
+          devTools = with pkgs; [
+            age
+            prek
+            sops
+            zsh
+          ];
+          pythonModule = import ./modules/python.nix { inherit pkgs; };
         in
         {
           devShells = {
-            default = pkgs.mkShell {
-              packages = packagesBasic;
-            };
-
-            ci = pkgs.mkShell {
-              packages = packagesBasic;
-
-              # Due to some weird handling of TMPDIR inside containers:
-              # https://github.com/NixOS/nix/issues/8355
-              # We have to reset the TMPDIR to make `nix build` work inside
-              # a development shell.
-              # Without `nix develop` it works.
-              shellHook = "unset TMPDIR";
-            };
-
-            surrogate = devenv.lib.mkShell {
+            default = devenv.lib.mkShell {
               inherit pkgs inputs;
-              modules = import ./shells/surrogate.nix { inherit pkgs; };
+              modules = 
+                pythonModule ++ [ 
+                  {packages = baseTools;}
+                  {packages = devTools;}
+                ];
             };
+
+            ci = devenv.lib.mkShell {
+              inherit pkgs inputs;
+              modules = 
+                pythonModule ++ [ {packages = baseTools;}];
+            };
+
           };
         };
     in
-    # Creates an attribute map `{ <key>.<system>.default = ...}`
-    # by calling function `defineOutput`.
-    # Key sofar is only `devShells` but can be any output `key` for a flake.
     flake-utils.lib.eachDefaultSystem defineOutput;
 }
