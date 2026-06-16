@@ -48,4 +48,3 @@ function ci::die() {
 function ci::is_running() {
     [ "${CI:-}" = "true" ] || return
 }
-

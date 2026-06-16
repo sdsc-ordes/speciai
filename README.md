@@ -8,7 +8,6 @@
 <p align="center">
 </p>
 
-
 [![Current Release](https://img.shields.io/github/release/sdsc-ordes/speciai.svg?label=release)](https://github.com/sdsc-ordes/speciai/releases/latest)
 [![Pipeline Status](https://img.shields.io/github/actions/workflow/status/sdsc-ordes/speciai/normal.yaml?label=ci)](https://github.com/sdsc-ordes/speciai/actions/workflows/normal.yaml)
 [![License label](https://img.shields.io/badge/License-MIT-blue.svg?)](https://mit-license.org/)
@@ -18,7 +17,6 @@
 - [Martin Fontanet](mailto:martin.fontanet@epfl.ch)
 - [Cyril Matthey-Doret](mailto:cyril.matthey-doret@epfl.ch)
 - [Robin Franken](mailto:robin.franken@epfl.ch)
-
 
 ## Installation
 

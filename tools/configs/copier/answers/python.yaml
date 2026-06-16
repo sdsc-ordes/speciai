@@ -2,13 +2,13 @@
 _src_path: src/python
 module_name: speciai
 project_authors:
--   email: martin.fontanet@epfl.ch
+  - email: martin.fontanet@epfl.ch
     first_name: Martin
     last_name: Fontanet
--   email: cyril.matthey-doret@epfl.ch
+  - email: cyril.matthey-doret@epfl.ch
     first_name: Cyril
     last_name: Matthey-Doret
--   email: robin.franken@epfl.ch
+  - email: robin.franken@epfl.ch
     first_name: Robin
     last_name: Franken
 project_description: Extraction of structured data from specimen pictures.

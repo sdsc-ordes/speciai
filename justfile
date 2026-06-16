@@ -19,11 +19,13 @@ develop *args:
 # Format the project.
 format *args:
     "{{root_dir}}/tools/scripts/setup-config-files.sh"
-    nix run --accept-flake-config {{flake_dir}}#treefmt -- "$@"
+    just develop -- treefmt "$@"
 
 # Setup the project.
 setup *args:
-    cd "{{root_dir}}" && ./tools/scripts/setup.sh
+    cd "{{root_dir}}" \
+      && uv sync \
+      && prek install
 
 # Run commands over the ci development shell.
 ci *args:

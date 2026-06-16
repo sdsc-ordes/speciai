@@ -25,7 +25,7 @@ function main() {
 
     rm -rf ".pre-commit-config.yaml" || true
     ln -s "tools/configs/prek/pre-commit-config.yaml" ".pre-commit-config.yaml"
-    
+
 }
 
 main "$@"
