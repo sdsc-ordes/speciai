@@ -1,6 +1,8 @@
-# devenv modules for the surrogate Python service.
-# Enter with: nix develop ./tools/nix#surrogate
-# Then cd into src/modules/surrogate and run: uv sync --extra dev
+# This function returns a list of `devenv` modules
+# which are passed to `mkShell`.
+#
+# Search for package at:
+# https://search.nixos.org/packages
 { pkgs, ... }:
 [
   {
