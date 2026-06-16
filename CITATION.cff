@@ -1,0 +1,24 @@
+cff-version: 1.2.0
+message: "If you use this software, please cite it as below."
+title: "SpeciAI"
+
+authors:
+  - family-names: Fontanet
+    given-names: Martin
+    orcid: "..."
+    affiliation: "SDSC - Swiss Data Science Center"
+  - family-names: Matthey-Doret
+    given-names: Cyril
+    orcid: "..."
+    affiliation: "SDSC - Swiss Data Science Center"
+  - family-names: Franken
+    given-names: Robin
+    orcid: "..."
+    affiliation: "SDSC - Swiss Data Science Center"
+date-released: 2026-11-16
+version: "0.0.1"
+doi: ""
+url: https://github.com/sdsc-ordes/speciai
+repository-code: https://github.com/sdsc-ordes/speciai
+keywords: []
+license: mit

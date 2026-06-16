@@ -1,0 +1,23 @@
+# Changes here will be overwritten by Copier; NEVER EDIT MANUALLY
+_src_path: src/generic
+project_affiliation: SDSC - Swiss Data Science Center
+project_authors:
+-   email: martin.fontanet@epfl.ch
+    first_name: Martin
+    last_name: Fontanet
+-   email: cyril.matthey-doret@epfl.ch
+    first_name: Cyril
+    last_name: Matthey-Doret
+-   email: robin.franken@epfl.ch
+    first_name: Robin
+    last_name: Franken
+project_description: Extraction of structured data from specimen pictures.
+project_hosts:
+-   host: github.com
+    organization: sdsc-ordes
+    repo: speciai
+project_language: python
+project_license: mit
+project_name: SpeciAI
+project_url: https://github.com/sdsc-ordes/speciai
+project_version: 0.0.1
