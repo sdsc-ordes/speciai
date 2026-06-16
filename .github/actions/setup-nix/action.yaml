@@ -8,5 +8,7 @@ runs:
       with:
         nix_path: nixpkgs=channel:nixos-unstable
     - name: bootstrap
-      run: nix profile install "./tools/nix#default"
+      run: |
+        nix profile install "./tools/nix#devShells.x86_64-linux.ci"
+        ./tools/ci/setup-git.sh
       shell: bash
