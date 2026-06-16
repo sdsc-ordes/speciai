@@ -10,10 +10,7 @@ ROOT_DIR=$(git rev-parse --show-toplevel)
 function main() {
     cd "$ROOT_DIR"
 
-    # We link config files to the root directory.
-    # To make IDE formatting setups work and also
-    # such that we do not need to configure all formatters
-    # in `treefmt-nix`.
+    # link config files to the root directory.
 
     ci::print_info "Linking configs files to root '$ROOT_DIR'."
 
@@ -26,6 +23,8 @@ function main() {
     rm -rf ".yamllint.yaml" || true
     ln -s "tools/configs/yamllint/yamllint.yaml" ".yamllint.yaml"
 
+    rm -rf ".pre-commit-config.yaml" || true
+    ln -s "tools/configs/prek/pre-commit-config.yaml" ".pre-commit-config.yaml"
     
 }
 
