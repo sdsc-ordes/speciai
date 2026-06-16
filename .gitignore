@@ -12,6 +12,12 @@
 #   ignore what you need. This file should ONLY deal common top-level
 #   ignores and things you want to ignore.
 
+# Agents
+AGENTS.md
+.agents/
+CLAUDE.md
+.claude/
+
 # Direnv cache folder.
 .direnv
 # Devenv cache folder.
@@ -30,3 +36,4 @@ __pycache*
 .prettierrc.yaml
 .yamllint.yaml
 .typos.toml
+.pre-commit-config.yaml
