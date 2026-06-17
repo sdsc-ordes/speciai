@@ -26,6 +26,7 @@ run *args:
     sops "$@"
 
 # Create key file to use with sops.
+[no-cd]
 generate-key path:
     #!/usr/bin/env bash
     set -eu -o pipefail
@@ -86,6 +87,7 @@ encrypt file:
     ci::print_info  "Done"
 
 # Decrypt to stdout
+[no-cd]
 decrypt file:
     #!/usr/bin/env bash
     set -eu -o pipefail
@@ -97,6 +99,7 @@ decrypt file:
     just -f "{{source_file()}}" run decrypt "$f"
 
 # Edit the file in place.
+[no-cd]
 edit file:
     #!/usr/bin/env bash
     set -eu -o pipefail
@@ -105,8 +108,10 @@ edit file:
     . "{{root_dir}}/tools/ci/general.sh"
     ci::print_info "Editing '$f'..."
     just -f "{{source_file()}}" run edit "$f"
+    echo "saved $f"
 
 # Update secrets based on secrets.yaml (without rotate)
+[no-cd]
 update:
     just -f "{{source_file()}}" re-encrypt "false"
 
@@ -132,6 +137,7 @@ re-encrypt rotate="true":
 
 
 [doc("Runs command with secrets (env. vars) sourced.")]
+[no-cd]
 exec-env *args:
     #!/usr/bin/env bash
     set -euE -o pipefail
@@ -139,4 +145,3 @@ exec-env *args:
 
     . "{{root_dir}}/tools/ci/general.sh"
     just -f "{{source_file()}}" run exec-env "{{root_dir}}/.sops.env" "{{args}}"
-
