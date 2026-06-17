@@ -18,6 +18,9 @@ AGENTS.md
 CLAUDE.md
 .claude/
 
+# secrets
+.env
+
 # Direnv cache folder.
 .direnv
 # Devenv cache folder.
