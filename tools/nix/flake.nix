@@ -66,6 +66,7 @@
           ];
           devTools = with pkgs; [
             age
+            awscli2
             prek
             sops
             zsh
