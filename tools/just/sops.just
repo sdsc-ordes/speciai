@@ -1,6 +1,5 @@
 set positional-arguments
 set shell := ["bash", "-cue"]
-set dotenv-required
 
 root_dir := `git rev-parse --show-toplevel`
 current_dir := source_directory()
@@ -139,4 +138,4 @@ exec-env *args:
     shift 1
 
     . "{{root_dir}}/tools/ci/general.sh"
-    just -f "{{source_file()}}" run exec-env "{{root_dir}}/.sops.env" "{{args}}"
+    just -f "{{source_file()}}" run exec-env "{{root_dir}}/.enc.env" "{{args}}"
