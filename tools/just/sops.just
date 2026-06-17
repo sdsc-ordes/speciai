@@ -1,5 +1,6 @@
 set positional-arguments
 set shell := ["bash", "-cue"]
+set dotenv-required
 
 root_dir := `git rev-parse --show-toplevel`
 current_dir := source_directory()
@@ -17,12 +18,6 @@ default:
 run *args:
     #!/usr/bin/env bash
     set -eu -o pipefail
-
-    echo "Using 'SOPS_AGE_KEY=decrypted($PROTECTED_SOPS_AGE_KEY_FILE)'" >&2
-    export SOPS_AGE_KEY="$(age -d "$PROTECTED_SOPS_AGE_KEY_FILE")" || {
-        echo "Could not password decrypt file '$PROTECTED_SOPS_AGE_KEY_FILE'." >&2
-        return 1
-    }
     sops "$@"
 
 # Create key file to use with sops.
