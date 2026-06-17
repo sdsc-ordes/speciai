@@ -5,7 +5,7 @@ set dotenv-required
 root_dir := `git rev-parse --show-toplevel`
 current_dir := source_directory()
 
-ENC_SUFFIX := ".sops"
+ENC_SUFFIX := ".enc"
 DEC_SUFFIX := ".dec"
 
 # Default recipe to list all recipes.
@@ -105,12 +105,12 @@ edit file:
     just -f "{{source_file()}}" run edit "$f"
     echo "saved $f"
 
-# Update secrets based on secrets.yaml (without rotate)
+# Update secrets based on .sops.yaml (without rotate)
 [no-cd]
 update:
     just -f "{{source_file()}}" re-encrypt "false"
 
-# Re-encrypt secrets based on secrets.yaml and rotate data encryption key.
+# Re-encrypt secrets based on .sops.yaml and rotate data encryption key.
 [no-cd]
 re-encrypt rotate="true":
     #!/usr/bin/env bash

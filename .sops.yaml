@@ -1,8 +1,8 @@
 # cmdoret: age1j6uke5sag9hvpgj9d487rjgjtk2y8mt84m9ae2z2h6np5h5ptpfsumhheg
+# marftn:  age1tuswsq87m3yx252upec4mq5a3maul9wr2pytq8uk9pthvvlg7plqag8fw4
 creation_rules:
-  - path_regex: .(dec|sops).env
+  - path_regex: .(dec|enc).env
     format: dotenv
-    age: >-
-      age1j6uke5sag9hvpgj9d487rjgjtk2y8mt84m9ae2z2h6np5h5ptpfsumhheg,
-      age1pp8py2lak3zjlqml7vemkw87lngxatttfycg3m7jcdmux8lyee7s8xzmf2,
-      age162krljn72f4nw5tz4q0q56q3n67dpjkggj6gyy4ckv8a0hy4peuqqmqkd9
+    age:
+      - age1j6uke5sag9hvpgj9d487rjgjtk2y8mt84m9ae2z2h6np5h5ptpfsumhheg
+      - age1tuswsq87m3yx252upec4mq5a3maul9wr2pytq8uk9pthvvlg7plqag8fw4
