@@ -19,6 +19,7 @@ CLAUDE.md
 .claude/
 
 # secrets
+*.dec.*
 .env
 
 # Direnv cache folder.
