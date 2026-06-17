@@ -20,8 +20,8 @@
 
 # Insect specimen digitization
 
-Ingests images of specimen with various human-written labels to produce structured [Darwin Core](https://dwc.tdwg.org/) records.
-
+Ingests images of specimen with various human-written labels to produce
+structured [Darwin Core](https://dwc.tdwg.org/) records.
 
 ```mermaid
 flowchart TD
@@ -37,23 +37,25 @@ flowchart TD
 
 ## Stages
 
-| # | Stage | Tool / model | Output |
-|---|---|---|---|
-| 1 | OCR | `doctr` | Hierarchical JSON preserving label layout |
-| 2 | Classification | Gemma 4 (primary) or fine-tuned BERT | Darwin Core–keyed JSON |
-| 3 | Enrichment | Nominatim, Wikidata, `dateutils` | Normalised field values |
-| 4 | Human review | Interactive pre-filled form | Confirmed / edited record |
+| #   | Stage          | Tool / model                         | Output                                    |
+| --- | -------------- | ------------------------------------ | ----------------------------------------- |
+| 1   | OCR            | `doctr`                              | Hierarchical JSON preserving label layout |
+| 2   | Classification | Gemma 4 (primary) or fine-tuned BERT | Darwin Core–keyed JSON                    |
+| 3   | Enrichment     | Nominatim, Wikidata, `dateutils`     | Normalised field values                   |
+| 4   | Human review   | Interactive pre-filled form          | Confirmed / edited record                 |
 
 ## Infrastructure
 
 - **Storage**: S3 with prefixes `images/` and `models/`
 - **Compute**: local only (CPU, 16GB RAM)
-- **Secrets**: `.env` encrypted with `age` + `sops`. Covers S3 credentials and API tokens.
+- **Secrets**: `.env` encrypted with `age` + `sops`. Covers S3 credentials and
+  API tokens.
 
 ## Open Questions
 
 - [ ] Validate `doctr` on real label images.
-- [ ] Benchmark Gemma 4 vs. fine-tuned BERT for zero-shot Darwin Core field classification.
+- [ ] Benchmark Gemma 4 vs. fine-tuned BERT for zero-shot Darwin Core field
+      classification.
 - [ ] Confirm output format requirements (json-ld or plain Darwin Core JSON)
 - [ ] Identify relevant sources for enrichment.
 
