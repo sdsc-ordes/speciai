@@ -66,6 +66,7 @@
           ];
           devTools = with pkgs; [
             age
+            awscli2
             prek
             sops
             zsh
@@ -76,17 +77,15 @@
           devShells = {
             default = devenv.lib.mkShell {
               inherit pkgs inputs;
-              modules = 
-                pythonModule ++ [ 
-                  {packages = baseTools;}
-                  {packages = devTools;}
-                ];
+              modules = pythonModule ++ [
+                { packages = baseTools; }
+                { packages = devTools; }
+              ];
             };
 
             ci = devenv.lib.mkShell {
               inherit pkgs inputs;
-              modules = 
-                pythonModule ++ [ {packages = baseTools;}];
+              modules = pythonModule ++ [ { packages = baseTools; } ];
             };
 
           };

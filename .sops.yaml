@@ -1,0 +1,8 @@
+# cmdoret: age1j6uke5sag9hvpgj9d487rjgjtk2y8mt84m9ae2z2h6np5h5ptpfsumhheg
+# marftn:  age1tuswsq87m3yx252upec4mq5a3maul9wr2pytq8uk9pthvvlg7plqag8fw4
+creation_rules:
+  - path_regex: .(dec|enc).env
+    format: dotenv
+    age:
+      - age1j6uke5sag9hvpgj9d487rjgjtk2y8mt84m9ae2z2h6np5h5ptpfsumhheg
+      - age1tuswsq87m3yx252upec4mq5a3maul9wr2pytq8uk9pthvvlg7plqag8fw4

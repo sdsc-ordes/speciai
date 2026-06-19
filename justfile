@@ -1,12 +1,14 @@
 set positional-arguments
 set shell := ["bash", "-cue"]
+set dotenv-load
 root_dir := `git rev-parse --show-toplevel`
 flake_dir := root_dir / "tools/nix"
 output_dir := root_dir / ".output"
 build_dir := output_dir / "build"
 
-mod nix "./tools/just/nix.just"
 mod external "./tools/just/external.just"
+mod nix "./tools/just/nix.just"
+mod sops "./tools/just/sops.just"
 
 # Default target if you do not specify a target.
 default:

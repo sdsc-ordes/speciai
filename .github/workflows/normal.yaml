@@ -39,4 +39,3 @@ jobs:
         run: |
           nix develop --no-pure-eval --accept-flake-config "./tools/nix#ci" --command \
             just ci just test
-
