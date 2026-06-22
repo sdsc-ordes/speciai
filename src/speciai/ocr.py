@@ -136,7 +136,7 @@ class OCREngine:
         label_groups = _cluster_into_labels(lines, self.gap_multiplier, self.gap_floor)
         return OCRResult(
             labels=[
-                Label(blocks=group, bbox=_union_bbox([b.bbox for b in group]))
+                Label(blocks=sorted(group, key=lambda b: (b.bbox.y1, b.bbox.x1)), bbox=_union_bbox([b.bbox for b in group]))
                 for group in label_groups
             ]
         )
