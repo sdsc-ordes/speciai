@@ -10,6 +10,9 @@
     packages = [
       pkgs.pyright
       pkgs.ruff
+      pkgs.libxcb
+      pkgs.libGL
+      pkgs.glib
     ];
 
     languages.python = {
