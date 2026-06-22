@@ -13,6 +13,7 @@ version = "0.0.1"
 dependencies = [
     "pydantic>=2.10.6",
     "pytest>=8.4.2",
+    "python-doctr[torch]>=0.9.0",
 ]
 [dependency-groups]
 dev = [
