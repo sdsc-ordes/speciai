@@ -1,36 +1,20 @@
-import numpy as np
+import argparse
+import json
+from pathlib import Path
+
+from speciai.ocr import OCREngine
 
 
-def numpy_demo_calculation():
-    print("--- NumPy Demo Calculation ---")
+def main() -> None:
+    parser = argparse.ArgumentParser(description="Run OCR on specimen label images.")
+    parser.add_argument("images", nargs="+", type=Path, metavar="IMAGE")
+    parser.add_argument("--display-box-coord", action="store_true", default=False)
+    args = parser.parse_args()
 
-    random_array = np.random.randint(0, 101, size=10)
-    print(f"Original array: {random_array}")
-
-    array_mean = np.mean(random_array)
-    print(f"Mean of the array: {array_mean:.2f}")  # Format to 2 decimal places
-
-    array_std_dev = np.std(random_array)
-    print(
-        f"Standard deviation of the array: {array_std_dev:.2f}"
-    )  # Format to 2 decimal places
-
-    random_array = np.random.randint(0, 101, size=10)
-    print(f"Original array: {random_array}")
-
-    array_mean = np.mean(random_array)
-    print(f"Mean of the array: {array_mean:.2f}")  # Format to 2 decimal places
-
-    array_std_dev = np.std(random_array)
-    print(
-        f"Standard deviation of the array: {array_std_dev:.2f}"
-    )  # Format to 2 decimal places
-
-    print("--- End of Demo ---")
-
-
-def main():
-    numpy_demo_calculation()
+    engine = OCREngine()
+    for image_path in args.images:
+        result = engine.run(image_path)
+        print(json.dumps(result.serialize(include_bbox=args.display_box_coord)))
 
 
 if __name__ == "__main__":
