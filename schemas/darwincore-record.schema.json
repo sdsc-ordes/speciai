@@ -517,8 +517,8 @@
     "decimalLatitude": {
       "anyOf": [
         {
-          "maximum": 90.0,
-          "minimum": -90.0,
+          "maximum": 90,
+          "minimum": -90,
           "type": "number"
         },
         {
@@ -535,8 +535,8 @@
     "decimalLongitude": {
       "anyOf": [
         {
-          "maximum": 180.0,
-          "minimum": -180.0,
+          "maximum": 180,
+          "minimum": -180,
           "type": "number"
         },
         {
@@ -569,7 +569,7 @@
     "coordinateUncertaintyInMeters": {
       "anyOf": [
         {
-          "minimum": 0.0,
+          "minimum": 0,
           "type": "number"
         },
         {
