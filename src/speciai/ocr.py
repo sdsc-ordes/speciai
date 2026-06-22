@@ -1,3 +1,10 @@
+"""Stage 1 of the speciai pipeline: extract layout-aware text from a full specimen photo.
+
+Each physical label slip in the image becomes a ``Label`` containing one ``Block`` per
+text line, ordered top-to-bottom. Labels are detected by clustering doctr's line-level
+bounding boxes using adaptive gap analysis.
+"""
+
 from enum import Enum
 from pathlib import Path
 
@@ -7,6 +14,8 @@ from pydantic import BaseModel
 
 
 class BBox(BaseModel):
+    """Normalised bounding box (coordinates in [0, 1] relative to image dimensions)."""
+
     x1: float
     y1: float
     x2: float
@@ -14,12 +23,16 @@ class BBox(BaseModel):
 
 
 class Block(BaseModel):
+    """A single line of text with its confidence score and position."""
+
     text: str
     confidence: float
     bbox: BBox
 
 
 class Label(BaseModel):
+    """One physical label slip, containing its text blocks in reading order."""
+
     blocks: list[Block]
     bbox: BBox
 
@@ -28,6 +41,9 @@ class OCRResult(BaseModel):
     labels: list[Label]
 
     def serialize(self, *, include_bbox: bool = True) -> dict:
+        """Return a JSON-serialisable dict. Pass ``include_bbox=False`` to strip all
+        bounding boxes from labels and blocks (e.g. for downstream pipeline stages).
+        """
         if include_bbox:
             return self.model_dump()
         return self.model_dump(exclude={
@@ -60,7 +76,10 @@ def _adaptive_split(
     multiplier: float,
     floor: float,
 ) -> list[list[Block]]:
-    """Split blocks where the gap between consecutive items exceeds multiplier × median gap."""
+    """Split blocks into groups wherever the gap between consecutive items exceeds
+    ``multiplier x median_gap``. The floor prevents degenerate splits when all blocks
+    are nearly touching.
+    """
     if not blocks:
         return []
     if len(blocks) == 1:
@@ -97,6 +116,9 @@ def _cluster_into_labels(
     multiplier: float,
     floor: float,
 ) -> list[list[Block]]:
+    """Two-pass gap clustering: split into rows (y-axis), then into individual labels
+    within each row (x-axis).
+    """
     labels = []
     for row in _adaptive_split(blocks, Axis.Y, multiplier, floor):
         labels.extend(_adaptive_split(row, Axis.X, multiplier, floor))
@@ -104,6 +126,23 @@ def _cluster_into_labels(
 
 
 class OCREngine:
+    """Loads doctr once and runs OCR on specimen images.
+
+    Args:
+        det_arch: doctr detection architecture (default: ``db_resnet50``).
+        reco_arch: doctr recognition architecture (default: ``crnn_vgg16_bn``).
+        gap_multiplier: a gap larger than ``multiplier x median_gap`` is treated as a
+            label boundary. Lower values split more aggressively. Typical range: 2-5.
+        gap_floor: minimum gap threshold in normalised coordinates, prevents degenerate
+            splits on very dense images.
+
+    Example::
+
+        engine = OCREngine()
+        result = engine.run(Path("specimen.jpg"))
+        print(result.serialize(include_bbox=False))
+    """
+
     def __init__(
         self,
         det_arch: str = "db_resnet50",
@@ -116,6 +155,7 @@ class OCREngine:
         self.gap_floor = gap_floor
 
     def run(self, image_path: Path) -> OCRResult:
+        """Run OCR on a photo and return detected labels."""
         doc = DocumentFile.from_images(str(image_path))
         result = self.model(doc)
 
