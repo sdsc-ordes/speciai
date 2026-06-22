@@ -66,22 +66,6 @@
       "x-dwc-term": "preparations",
       "x-dwc-iri": "http://rs.tdwg.org/dwc/terms/preparations"
     },
-    "partOfOrganism": {
-      "anyOf": [
-        {
-          "type": "string"
-        },
-        {
-          "type": "null"
-        }
-      ],
-      "default": null,
-      "description": "Which part of the organism the record represents (NOT a Darwin Core term; needs explicit mapping).",
-      "title": "Part Of Organism",
-      "x-dwc-status": "non_dwc",
-      "x-dwc-term": null,
-      "x-dwc-iri": null
-    },
     "scientificName": {
       "anyOf": [
         {
@@ -258,22 +242,6 @@
       "x-dwc-term": "infraspecificEpithet",
       "x-dwc-iri": "http://rs.tdwg.org/dwc/terms/infraspecificEpithet"
     },
-    "taxonRank": {
-      "anyOf": [
-        {
-          "type": "string"
-        },
-        {
-          "type": "null"
-        }
-      ],
-      "default": null,
-      "description": "Rank of the most specific name (e.g. 'species').",
-      "title": "Taxon Rank",
-      "x-dwc-status": "standard",
-      "x-dwc-term": "taxonRank",
-      "x-dwc-iri": "http://rs.tdwg.org/dwc/terms/taxonRank"
-    },
     "taxonId": {
       "anyOf": [
         {
@@ -289,38 +257,6 @@
       "x-dwc-status": "alias",
       "x-dwc-term": "taxonID",
       "x-dwc-iri": "http://rs.tdwg.org/dwc/terms/taxonID"
-    },
-    "associatedTaxa": {
-      "anyOf": [
-        {
-          "type": "string"
-        },
-        {
-          "type": "null"
-        }
-      ],
-      "default": null,
-      "description": "Other taxa associated with the specimen (e.g. host).",
-      "title": "Associated Taxa",
-      "x-dwc-status": "standard",
-      "x-dwc-term": "associatedTaxa",
-      "x-dwc-iri": "http://rs.tdwg.org/dwc/terms/associatedTaxa"
-    },
-    "caste": {
-      "anyOf": [
-        {
-          "type": "string"
-        },
-        {
-          "type": "null"
-        }
-      ],
-      "default": null,
-      "description": "Social caste of the specimen, e.g. 'worker', 'queen' (Darwin Core term for eusocial insects).",
-      "title": "Caste",
-      "x-dwc-status": "standard",
-      "x-dwc-term": "caste",
-      "x-dwc-iri": "http://rs.tdwg.org/dwc/terms/caste"
     },
     "identifiedBy": {
       "anyOf": [
@@ -385,38 +321,6 @@
       "x-dwc-status": "standard",
       "x-dwc-term": "typeStatus",
       "x-dwc-iri": "http://rs.tdwg.org/dwc/terms/typeStatus"
-    },
-    "typeDesignatedBy": {
-      "anyOf": [
-        {
-          "type": "string"
-        },
-        {
-          "type": "null"
-        }
-      ],
-      "default": null,
-      "description": "Agent who designated the type status (NOT a Darwin Core term; needs explicit mapping).",
-      "title": "Type Designated By",
-      "x-dwc-status": "non_dwc",
-      "x-dwc-term": null,
-      "x-dwc-iri": null
-    },
-    "typifiedName": {
-      "anyOf": [
-        {
-          "type": "string"
-        },
-        {
-          "type": "null"
-        }
-      ],
-      "default": null,
-      "description": "Scientific name based on this type specimen (Darwin Core nomenclature term).",
-      "title": "Typified Name",
-      "x-dwc-status": "standard",
-      "x-dwc-term": "typifiedName",
-      "x-dwc-iri": "http://rs.tdwg.org/dwc/terms/typifiedName"
     },
     "recordedBy": {
       "anyOf": [
@@ -513,22 +417,6 @@
       "x-dwc-status": "standard",
       "x-dwc-term": "verbatimEventDate",
       "x-dwc-iri": "http://rs.tdwg.org/dwc/terms/verbatimEventDate"
-    },
-    "habitat": {
-      "anyOf": [
-        {
-          "type": "string"
-        },
-        {
-          "type": "null"
-        }
-      ],
-      "default": null,
-      "description": "Habitat description.",
-      "title": "Habitat",
-      "x-dwc-status": "standard",
-      "x-dwc-term": "habitat",
-      "x-dwc-iri": "http://rs.tdwg.org/dwc/terms/habitat"
     },
     "continent": {
       "anyOf": [
@@ -727,38 +615,6 @@
       "x-dwc-term": "verbatimCoordinateSystem",
       "x-dwc-iri": "http://rs.tdwg.org/dwc/terms/verbatimCoordinateSystem"
     },
-    "minimumElevationInMeters": {
-      "anyOf": [
-        {
-          "type": "number"
-        },
-        {
-          "type": "null"
-        }
-      ],
-      "default": null,
-      "description": "Minimum elevation, in metres.",
-      "title": "Minimum Elevation In Meters",
-      "x-dwc-status": "standard",
-      "x-dwc-term": "minimumElevationInMeters",
-      "x-dwc-iri": "http://rs.tdwg.org/dwc/terms/minimumElevationInMeters"
-    },
-    "maximumElevationInMeters": {
-      "anyOf": [
-        {
-          "type": "number"
-        },
-        {
-          "type": "null"
-        }
-      ],
-      "default": null,
-      "description": "Maximum elevation, in metres.",
-      "title": "Maximum Elevation In Meters",
-      "x-dwc-status": "standard",
-      "x-dwc-term": "maximumElevationInMeters",
-      "x-dwc-iri": "http://rs.tdwg.org/dwc/terms/maximumElevationInMeters"
-    },
     "associatedMedia": {
       "anyOf": [
         {
@@ -806,22 +662,6 @@
       "x-dwc-status": "standard",
       "x-dwc-term": "verbatimLabel",
       "x-dwc-iri": "http://rs.tdwg.org/dwc/terms/verbatimLabel"
-    },
-    "source": {
-      "anyOf": [
-        {
-          "type": "string"
-        },
-        {
-          "type": "null"
-        }
-      ],
-      "default": null,
-      "description": "Provenance of the record / data source (NOT a Darwin Core term; needs explicit mapping).",
-      "title": "Source",
-      "x-dwc-status": "non_dwc",
-      "x-dwc-term": null,
-      "x-dwc-iri": null
     }
   },
   "title": "DarwinCoreRecord",

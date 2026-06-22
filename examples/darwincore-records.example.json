@@ -12,8 +12,6 @@
     "tribe": "Lasiini",
     "genus": "Lasius",
     "specificEpithet": "niger",
-    "taxonRank": "species",
-    "caste": "worker",
     "identifiedBy": "M. Fontanet",
     "dateIdentified": "2024-05-01",
     "verbatimIdentification": "Lasius niger det. MF 2024",
@@ -22,7 +20,6 @@
     "lifeStage": "adult",
     "eventDate": "1998-07-14",
     "verbatimEventDate": "14.VII.1998",
-    "habitat": "deciduous woodland edge",
     "continent": "Europe",
     "country": "Switzerland",
     "countryCode": "CH",
@@ -35,20 +32,15 @@
     "coordinateUncertaintyInMeters": 250,
     "verbatimCoordinates": "46°30'N 6°46'E",
     "verbatimCoordinateSystem": "degrees minutes",
-    "minimumElevationInMeters": 670,
-    "maximumElevationInMeters": 670,
     "preparations": "pinned",
     "associatedMedia": "s3://images/MZL-INS-000123_label.jpg",
-    "verbatimLabel": "SCHWEIZ Vaud\nLac de Bret\n14.VII.1998 leg. J. Doe",
-    "source": "speciai-ocr-v0"
+    "verbatimLabel": "SCHWEIZ Vaud\nLac de Bret\n14.VII.1998 leg. J. Doe"
   },
   {
     "catalogNumber": "MZL-INS-000124",
     "collectionCode": "INS",
     "family": "Formicidae",
     "genus": "Formica",
-    "taxonRank": "genus",
-    "caste": "queen",
     "recordedBy": "A. Muster",
     "verbatimEventDate": "Juin 1952",
     "verbatimLocality": "Zermatt env.",
@@ -58,8 +50,7 @@
     "verbatimCoordinates": "unknown",
     "preparations": "in ethanol",
     "associatedMedia": "s3://images/MZL-INS-000124_label.jpg",
-    "verbatimLabel": "Zermatt env.\nVI.1952",
-    "source": "speciai-ocr-v0"
+    "verbatimLabel": "Zermatt env.\nVI.1952"
   },
   {
     "catalogNumber": "MZL-INS-000125",
@@ -70,11 +61,7 @@
     "subfamily": "Formicinae",
     "genus": "Formica",
     "specificEpithet": "helvetica",
-    "taxonRank": "species",
-    "caste": "worker",
     "typeStatus": "holotype",
-    "typeDesignatedBy": "Bondroit, 1918",
-    "typifiedName": "Formica helvetica Bondroit, 1918",
     "identifiedBy": "C. Matthey-Doret",
     "dateIdentified": "2025-02-10",
     "recordedBy": "Bondroit",
@@ -93,7 +80,6 @@
     "coordinateUncertaintyInMeters": 5000,
     "preparations": "pinned",
     "associatedMedia": "s3://images/MZL-INS-000125_label.jpg",
-    "organismRemarks": "type specimen, fragile",
-    "source": "speciai-ocr-v0"
+    "organismRemarks": "type specimen, fragile"
   }
 ]

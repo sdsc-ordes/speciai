@@ -5,9 +5,8 @@ pipeline emits. One :class:`DarwinCoreRecord` corresponds to one specimen
 (one row in the flat table uploaded to Specify via the WorkBench).
 
 The field set and *exact* field names / casing match the target collection's
-expected column headers. Most terms are standard Darwin Core
-(https://dwc.tdwg.org/); a few are extension or domain-specific terms used by
-the target collection and are flagged in their descriptions.
+expected column headers. All are Darwin Core terms (https://dwc.tdwg.org/);
+``taxonId`` is a DwC term that differs only in casing (canonical ``taxonID``).
 
 Conventions:
   * Every field is optional. OCR + classification frequently miss fields; the
@@ -51,11 +50,6 @@ class DarwinCoreRecord(BaseModel):
         default=None,
         description="Preparation/preservation method (e.g. 'pinned', 'in ethanol').",
     )
-    partOfOrganism: str | None = Field(
-        default=None,
-        description="Which part of the organism the record represents (NOT a Darwin Core term; needs explicit mapping).",
-    )
-
     scientificName: str | None = Field(
         default=None, description="Full scientific name, with authorship if known."
     )
@@ -73,21 +67,10 @@ class DarwinCoreRecord(BaseModel):
     infraspecificEpithet: str | None = Field(
         default=None, description="Subspecies / infraspecific epithet."
     )
-    taxonRank: str | None = Field(
-        default=None, description="Rank of the most specific name (e.g. 'species')."
-    )
     taxonId: str | None = Field(
         default=None,
         description="Taxon identifier (DwC canonical term is 'taxonID'; kept as 'taxonId' to match target headers).",
     )
-    associatedTaxa: str | None = Field(
-        default=None, description="Other taxa associated with the specimen (e.g. host)."
-    )
-    caste: str | None = Field(
-        default=None,
-        description="Social caste of the specimen, e.g. 'worker', 'queen' (Darwin Core term for eusocial insects).",
-    )
-
     identifiedBy: str | None = Field(
         default=None, description="Person(s) who determined the taxon."
     )
@@ -102,15 +85,6 @@ class DarwinCoreRecord(BaseModel):
     typeStatus: str | None = Field(
         default=None, description="Nomenclatural type status (e.g. 'holotype')."
     )
-    typeDesignatedBy: str | None = Field(
-        default=None,
-        description="Agent who designated the type status (NOT a Darwin Core term; needs explicit mapping).",
-    )
-    typifiedName: str | None = Field(
-        default=None,
-        description="Scientific name based on this type specimen (Darwin Core nomenclature term).",
-    )
-
     recordedBy: str | None = Field(
         default=None, description="Collector(s) of the specimen."
     )
@@ -129,8 +103,6 @@ class DarwinCoreRecord(BaseModel):
     verbatimEventDate: str | None = Field(
         default=None, description="Verbatim collection date as written on the label."
     )
-    habitat: str | None = Field(default=None, description="Habitat description.")
-
     continent: str | None = Field(default=None, description="Continent.")
     country: str | None = Field(default=None, description="Country name.")
     countryCode: str | None = Field(
@@ -163,13 +135,6 @@ class DarwinCoreRecord(BaseModel):
     verbatimCoordinateSystem: str | None = Field(
         default=None, description="Coordinate system of the verbatim coordinates."
     )
-    minimumElevationInMeters: float | None = Field(
-        default=None, description="Minimum elevation, in metres."
-    )
-    maximumElevationInMeters: float | None = Field(
-        default=None, description="Maximum elevation, in metres."
-    )
-
     associatedMedia: str | None = Field(
         default=None,
         description="URI(s) of associated media (e.g. label/specimen images).",
@@ -180,10 +145,6 @@ class DarwinCoreRecord(BaseModel):
     verbatimLabel: str | None = Field(
         default=None,
         description="Full verbatim transcription of the specimen label text.",
-    )
-    source: str | None = Field(
-        default=None,
-        description="Provenance of the record / data source (NOT a Darwin Core term; needs explicit mapping).",
     )
 
     @classmethod
@@ -196,7 +157,6 @@ CANONICAL_COLUMN_ORDER: tuple[str, ...] = (
     "catalogNumber",
     "kingdom",
     "phylum",
-    "associatedTaxa",
     "collectionCode",
     "coordinateUncertaintyInMeters",
     "country",
@@ -209,8 +169,6 @@ CANONICAL_COLUMN_ORDER: tuple[str, ...] = (
     "identifiedBy",
     "lifeStage",
     "locality",
-    "maximumElevationInMeters",
-    "minimumElevationInMeters",
     "order",
     "recordedBy",
     "scientificNameAuthorship",
@@ -222,28 +180,21 @@ CANONICAL_COLUMN_ORDER: tuple[str, ...] = (
     "typeStatus",
     "verbatimEventDate",
     "verbatimLocality",
-    "taxonRank",
     "taxonId",
-    "habitat",
     "infraspecificEpithet",
     "organismRemarks",
-    "source",
     "verbatimLabel",
     "preparations",
-    "partOfOrganism",
     "continent",
     "scientificName",
     "dateIdentified",
     "eventDate",
-    "caste",
     "otherCatalogNumbers",
     "verbatimCoordinates",
     "associatedMedia",
     "associatedReferences",
     "verbatimIdentification",
     "verbatimCoordinateSystem",
-    "typeDesignatedBy",
-    "typifiedName",
 )
 
 assert set(CANONICAL_COLUMN_ORDER) == set(DarwinCoreRecord.model_fields), (
@@ -259,50 +210,26 @@ class TermStatus(str, Enum):
 
     STANDARD = "standard"
     ALIAS = "alias"
-    NON_DWC = "non_dwc"
 
 
 _ALIASES: dict[str, str] = {
     "taxonId": "taxonID",
 }
-_NON_DWC: frozenset[str] = frozenset({"source", "partOfOrganism", "typeDesignatedBy"})
 
 
 def term_status(header: str) -> TermStatus:
     """Classify a column header against the Darwin Core vocabulary."""
-    if header in _NON_DWC:
-        return TermStatus.NON_DWC
-    if header in _ALIASES:
-        return TermStatus.ALIAS
-    return TermStatus.STANDARD
+    return TermStatus.ALIAS if header in _ALIASES else TermStatus.STANDARD
 
 
-def dwc_term(header: str) -> str | None:
-    """Canonical Darwin Core term for a header, or ``None`` if it has none."""
-    status = term_status(header)
-    if status is TermStatus.NON_DWC:
-        return None
-    if status is TermStatus.ALIAS:
-        return _ALIASES[header]
-    return header
+def dwc_term(header: str) -> str:
+    """Canonical Darwin Core term for a header."""
+    return _ALIASES.get(header, header)
 
 
-def dwc_iri(header: str) -> str | None:
-    """Full Darwin Core term IRI for a header, or ``None`` if it has none."""
-    term = dwc_term(header)
-    return f"{DWC_TERMS_BASE_IRI}{term}" if term else None
-
-
-def term_mapping() -> dict[str, dict[str, str | None]]:
-    """Per-column reconciliation table: status, canonical term, and IRI."""
-    return {
-        h: {
-            "status": term_status(h).value,
-            "dwcTerm": dwc_term(h),
-            "dwcIri": dwc_iri(h),
-        }
-        for h in CANONICAL_COLUMN_ORDER
-    }
+def dwc_iri(header: str) -> str:
+    """Full Darwin Core term IRI for a header."""
+    return f"{DWC_TERMS_BASE_IRI}{dwc_term(header)}"
 
 
 def humanize(field_name: str) -> str:
