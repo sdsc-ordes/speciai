@@ -1,3 +1,4 @@
+from enum import Enum
 from pathlib import Path
 
 from doctr.io import DocumentFile
@@ -27,6 +28,11 @@ class OCRResult(BaseModel):
     labels: list[Label]
 
 
+class Axis(Enum):
+    X = "x"
+    Y = "y"
+
+
 def _geometry_to_bbox(geometry) -> BBox:
     (x1, y1), (x2, y2) = geometry
     return BBox(x1=x1, y1=y1, x2=x2, y2=y2)
@@ -43,7 +49,7 @@ def _union_bbox(bboxes: list[BBox]) -> BBox:
 
 def _adaptive_split(
     blocks: list[Block],
-    axis: str,
+    axis: Axis,
     multiplier: float,
     floor: float,
 ) -> list[list[Block]]:
@@ -53,20 +59,18 @@ def _adaptive_split(
     if len(blocks) == 1:
         return [blocks]
 
-    if axis == "y":
-        sort_key = lambda b: b.bbox.y1  # noqa: E731
-        start_key = lambda b: b.bbox.y1  # noqa: E731
-        end_key = lambda b: b.bbox.y2  # noqa: E731
+    if axis is Axis.Y:
+        sorted_blocks = sorted(blocks, key=lambda b: b.bbox.y1)
+        gap_values = [
+            max(sorted_blocks[i].bbox.y1 - sorted_blocks[i - 1].bbox.y2, 0.0)
+            for i in range(1, len(sorted_blocks))
+        ]
     else:
-        sort_key = lambda b: b.bbox.x1  # noqa: E731
-        start_key = lambda b: b.bbox.x1  # noqa: E731
-        end_key = lambda b: b.bbox.x2  # noqa: E731
-
-    sorted_blocks = sorted(blocks, key=sort_key)
-    gap_values = [
-        max(start_key(sorted_blocks[i]) - end_key(sorted_blocks[i - 1]), 0.0)
-        for i in range(1, len(sorted_blocks))
-    ]
+        sorted_blocks = sorted(blocks, key=lambda b: b.bbox.x1)
+        gap_values = [
+            max(sorted_blocks[i].bbox.x1 - sorted_blocks[i - 1].bbox.x2, 0.0)
+            for i in range(1, len(sorted_blocks))
+        ]
 
     median_gap = sorted(gap_values)[len(gap_values) // 2]
     threshold = max(median_gap * multiplier, floor)
@@ -86,10 +90,9 @@ def _cluster_into_labels(
     multiplier: float,
     floor: float,
 ) -> list[list[Block]]:
-    row_groups = _adaptive_split(blocks, axis="y", multiplier=multiplier, floor=floor)
     labels = []
-    for row in row_groups:
-        labels.extend(_adaptive_split(row, axis="x", multiplier=multiplier, floor=floor))
+    for row in _adaptive_split(blocks, Axis.Y, multiplier, floor):
+        labels.extend(_adaptive_split(row, Axis.X, multiplier, floor))
     return labels
 
 
