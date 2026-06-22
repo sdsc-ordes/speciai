@@ -27,6 +27,13 @@ class Label(BaseModel):
 class OCRResult(BaseModel):
     labels: list[Label]
 
+    def serialize(self, *, include_bbox: bool = True) -> dict:
+        if include_bbox:
+            return self.model_dump()
+        return self.model_dump(exclude={
+            "labels": {"__all__": {"bbox": True, "blocks": {"__all__": {"bbox": True}}}}
+        })
+
 
 class Axis(Enum):
     X = "x"
