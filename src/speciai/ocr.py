@@ -39,6 +39,7 @@ class Label(BaseModel):
 
 class OCRResult(BaseModel):
     labels: list[Label]
+    filename: str
 
     def serialize(self, *, include_bbox: bool = True) -> dict:
         """Return a JSON-serialisable dict. Pass ``include_bbox=False`` to strip all
@@ -178,5 +179,7 @@ class OCREngine:
             labels=[
                 Label(blocks=sorted(group, key=lambda b: (b.bbox.y1, b.bbox.x1)), bbox=_union_bbox([b.bbox for b in group]))
                 for group in label_groups
-            ]
+            ],
+            filename=image_path.name
+
         )
