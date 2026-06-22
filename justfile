@@ -43,6 +43,11 @@ lint *args:
 build *args:
     uv build --out-dir "{{build_dir}}" "$@"
 
+# Generate the Darwin Core JSON Schema artifact (pass --check to verify only).
+[group('general')]
+gen-schema *args:
+    uv run python -m speciai.generate_schema "$@"
+
 # Test the project.
 [group('general')]
 test *args:
