@@ -3,8 +3,9 @@ from itertools import product
 import dateutil.parser
 from geopy.geocoders import Nominatim
 from geopy.location import Location
-import pycountry_convert as pc
 import requests
+
+from geo import convert_country_alpha2_to_continent
 
 OSMField = str
 DCTerm = str
@@ -27,10 +28,23 @@ TAXONOMIC_RANKS = {
 
 doc = {
   "location": ["CH SH.", "ifcrishausen", "Chlosterfeid,"],
-  "verbatimCoordinate": "Koord. .686.7/288.5",
+  "verbatimCoordinates": "Koord. .686.7/288.5",
   "catalogNumber": [ "ETHZ-ENT", "D", "0082619", "OO" ],
-  "authorship": ["(Linnaeus, 1758)", "leg. L. Vidmer", "det. L. Widmer", "det. L. Widmer 1999", "Raymond Guenin 2017"],
-  "scientificName": [ "Zygaena", "filipendalae", "Zygaena", "filipendulae", "Zygaenidae:", "Zygaeninae"],
+  "authorship": [
+        "(Linnaeus, 1758)",
+        "leg. L. Vidmer",
+        "det. L. Widmer",
+        "det. L. Widmer 1999",
+        "Raymond Guenin 2017",
+  ],
+  "scientificName": [
+        "Zygaena",
+        "filipendalae",
+        "Zygaena",
+        "filipendulae",
+        "Zygaenidae:",
+        "Zygaeninae"
+    ],
 }
 output = {}
 
@@ -43,7 +57,9 @@ def locate(location: str) -> Location:
 
 locations = []
 for loc_text in doc.get("location", []):
-    locations.append({'text': loc_text, 'loc': locate(loc_text)})
+    loc_data = locate(loc_text)
+    if loc_data is not None:
+        locations.append({'text': loc_text, 'loc': loc_data})
 
 finest_location = sorted(
     locations,
@@ -60,15 +76,16 @@ def parse_address(loc: Location) -> dict[str, str]:
 
     # DCT fields not in OSM address
     if 'country_code' in address:
-        continent = pc.country_alpha2_to_continent_name(address['country_code'])
+
+        continent = convert_country_alpha2_to_continent(address['country_code'])
         out_address['continent'] = continent
 
     return out_address
 
 loc = finest_location['loc']
 output['verbatimLocality'] = finest_location['text']
-output['decimalLatitude'] = loc['lat']
-output['decimalLongitude'] = loc['lon']
+output['decimalLatitude'] = loc.latitude
+output['decimalLongitude'] = loc.longitude
 
 output |= parse_address(loc)
 
