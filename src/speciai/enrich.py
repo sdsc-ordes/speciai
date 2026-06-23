@@ -228,14 +228,11 @@ if chrono_authors:
 print(json.dumps(output, indent=2))
 #NOTE: These are not (yet) covered:
 # verbatimIdentification: str | None = Field( default=None, description="Verbatim taxonomic identification as written on the label.")
-# recordedBy: str | None = Field( default=None, description="Collector(s) of the specimen.")
 # sex: str | None = Field(default=None, description="Sex of the specimen.")
 # lifeStage: str | None = Field( default=None, description="Life stage (e.g. 'adult', 'larva').")
 # organismRemarks: str | None = Field( default=None, description="Free-text remarks about the organism.")
 #
 # # --- Event (CollectingEvent) -------------------------------------------
-# eventDate: str | None = Field( default=None, description="Interpreted collection date (ISO 8601; may be partial or a range).")
-# verbatimEventDate: str | None = Field( default=None, description="Verbatim collection date as written on the label.")
 # habitat: str | None = Field(default=None, description="Habitat description.")
 #
 #
