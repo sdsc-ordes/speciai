@@ -1,5 +1,9 @@
+from __future__ import annotations
+from dataclasses import dataclass
 from itertools import product
+import json
 
+from datetime import datetime
 import dateutil.parser
 from geopy.geocoders import Nominatim
 from geopy.location import Location
@@ -126,7 +130,10 @@ def parse_species(genus: str, species: str) -> dict[str, str] | None:
     resp.raise_for_status()
 
     data = resp.json()
-    usage = data['usage']
+    try:
+        usage = data['usage']
+    except KeyError:
+        return None
     # Give up if we're hitting a higher order taxon
     if usage['rank'] != "SPECIES":
         return None
@@ -155,11 +162,11 @@ for (genus, sp) in product(genera, species): # all g x s combinations
     taxonomic_data = parse_species(genus, sp)
     if taxonomic_data is not None:
         # NOTE: abort on first good enough match to go faster. We could scan all and take the best.
+        output['verbatimIdentification'] = f"{genus} {sp}"
         break
 
 if taxonomic_data is not None:
     output |= taxonomic_data
-
 #NOTE: These are not (yet) covered:
 # infraspecificEpithet: str | None = Field( default=None, description="Subspecies / infraspecific epithet.")
 # taxonId: str | None = Field( default=None, description="Taxon identifier (DwC canonical term is 'taxonID'; kept as 'taxonId' to match target headers).",)
@@ -168,9 +175,57 @@ if taxonomic_data is not None:
 
 # identification
 
-output['recordedBy'] = doc['recordedBy']
-output['dateIdentifiedBy'] = str(dateutil.parser.parse(doc['dateIdentified']).date())
+@dataclass(order=True, frozen=True, eq=True)
+class Authorship:
+    author: str
+    date: datetime
+    verbatim: str | None = None
 
+    @classmethod
+    def from_string(cls, authorship: str) -> Authorship:
+        date, rest = dateutil.parser.parse(
+            authorship, fuzzy_with_tokens=True
+        )
+
+        return cls(rest[0], date, authorship)
+
+
+authorships: set[Authorship] = set()
+for authorship_text in doc['authorship']:
+    try:
+        authorships.add(
+            Authorship.from_string(authorship_text)
+        )
+    except dateutil.parser.ParserError:
+        continue
+
+
+# Exclude scientific name authorship
+if 'scientificNameAuthorship' in output:
+    try:
+        sci_auth = Authorship.from_string(
+            output['scientificNameAuthorship']
+        )
+        authorships.remove(sci_auth)
+    except (KeyError, dateutil.parser.ParserError):
+        pass
+
+
+# Assume most recent is identifying author, previous is recorded
+chrono_authors: list[Authorship] = sorted(authorships)
+
+if chrono_authors:
+    id_author = chrono_authors.pop(-1)
+    output['identifiedBy'] = id_author.author
+    output['dateIdentified'] = id_author.date.isoformat()
+
+if chrono_authors:
+    record_author = chrono_authors.pop(-1)
+    output['recordedBy'] = record_author.author
+    output['eventDate'] = record_author.date.isoformat()
+    output['verbatimEventDate'] = record_author.verbatim
+
+print(json.dumps(output, indent=2))
 #NOTE: These are not (yet) covered:
 # verbatimIdentification: str | None = Field( default=None, description="Verbatim taxonomic identification as written on the label.")
 # recordedBy: str | None = Field( default=None, description="Collector(s) of the specimen.")
