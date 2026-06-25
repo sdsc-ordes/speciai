@@ -1,34 +1,21 @@
-#!/usr/bin/env python3
-# -*- coding: utf-8 -*-
-#  @copyright 2017 TUNE, Inc. (http://www.tune.com)
-#Copyright (c) 2017 TUNE, Inc.
-# `All rights reserved.
-# `
-# `    MIT License
-# `
-# `    http://opensource.org/licenses/MIT The MIT License (MIT)
-# `
-# `    Permission is hereby granted, free of charge, to any person obtaining a copy
-# `    of this software and associated documentation files (the "Software"), to deal
-# `    in the Software without restriction, including without limitation the rights
-# `    to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-# `    copies of the Software, and to permit persons to whom the Software is
-# `    furnished to do so, subject to the following conditions:
-# `
-# `    The above copyright notice and this permission notice shall be included in
-# `    all copies or substantial portions of the Software.
-# `
-# `    THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-# `    IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-# `    FITNESS FOR A PARTICULAR PURPOSE AND NON-INFRINGEMENT. IN NO EVENT SHALL THE
-# `    AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-# `    LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-# `    OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
-# `    THE SOFTWARE.  @namespace pycountry-convert
-"""
-Mapping of Country Alpha-2 to Continent, from Wikipedia
-"""
+"""Geocoding functionality."""
 
+from functools import lru_cache
+
+from geopy.geocoders import Nominatim
+from geopy.location import Location
+
+OSMField = str
+DCTerm = str
+OSM_ADDRESS_MAPPINGS: dict[OSMField, DCTerm] = {
+    'village': 'locality',
+    'city': 'locality',
+    'country_code': 'countryCode',
+    'state': 'stateProvince',
+    'country': 'country'
+}
+
+# Country code -> continent name Based on wikipedia
 COUNTRY_ALPHA2_TO_CONTINENT = {
     'AB': 'Asia',
     'AD': 'Europe',
@@ -278,11 +265,56 @@ COUNTRY_ALPHA2_TO_CONTINENT = {
 }
 
 
-def convert_country_alpha2_to_continent(country_2_code):
-    """Convert country code to continent.
+def country_alpha2_to_continent_name(country_alpha2: str):
+    """Convert country code to continent name.
     """
-    upper_code = country_2_code.upper()
+    upper_code = country_alpha2.upper()
     if upper_code not in COUNTRY_ALPHA2_TO_CONTINENT:
         raise KeyError
 
     return COUNTRY_ALPHA2_TO_CONTINENT[upper_code]
+
+
+@lru_cache(maxsize=1024)
+def nominatim_locate(location: str) -> Location | None:
+    nom = Nominatim(user_agent="speciai")
+    resp = nom.geocode(query=location, addressdetails=True)
+    return resp
+
+
+def parse_address(loc: Location) -> dict[str, str | None]:
+    out_address = {}
+    address = loc.raw['address']
+    for (osm, dct) in OSM_ADDRESS_MAPPINGS.items():
+        if osm in address:
+            out_address[dct] = address[osm]
+
+    # DCT fields not in OSM address
+    if 'country_code' in address:
+
+        continent = country_alpha2_to_continent_name(address['country_code'])
+        out_address['continent'] = continent
+
+    return out_address
+
+
+def enrich_locations(location_texts: list[str]) -> dict[str, str | None]:
+    locations: list[Location] = []
+    for loc_text in location_texts:
+        loc_data = nominatim_locate(loc_text)
+        if loc_data is not None:
+            locations.append({'text': loc_text, 'loc': loc_data})
+
+    finest_location = sorted(
+        locations,
+        key=lambda loc: loc['loc'].raw.get("place_rank", 0)
+    )[-1]
+
+    output: dict[str, str | None] = {}
+    loc = finest_location['loc']
+    output = parse_address(loc)
+    output['decimalLatitude'] = loc.latitude
+    output['decimalLongitude'] = loc.longitude
+    output['verbatimLocality'] = finest_location['text']
+
+    return output
