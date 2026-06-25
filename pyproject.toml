@@ -23,7 +23,7 @@ dev = [
 ]
 
 [project.scripts]
-cli = 'speciai.cli:main'
+speciai = 'speciai.cli:main'
 
 [build-system]
 requires = ["hatchling"]
