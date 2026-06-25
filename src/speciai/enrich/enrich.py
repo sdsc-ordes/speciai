@@ -5,7 +5,7 @@ from speciai.schema import DarwinCoreRecord
 
 
 
-def enrich_record(doc: dict[str, list[str] | str]) -> dict[str, str | None]:
+def enrich_record(doc: dict[str, list[str] | str]) -> DarwinCoreRecord:
 
     output: dict[str, str | None] = {}
 
@@ -38,8 +38,9 @@ def enrich_record(doc: dict[str, list[str] | str]) -> dict[str, str | None]:
     # caste: str | None = Field( default=None, description="Social caste of the specimen, e.g. 'worker', 'queen' (Darwin Core term for eusocial insects).",)
 
     output |= enrich_authorships(doc['authorship'], output.get('scientificNameAuthorship'))
+    record = DarwinCoreRecord(**output)
 
-    return output
+    return record
 
 if __name__ == "__main__":
     doc = {
@@ -62,9 +63,8 @@ if __name__ == "__main__":
             "Zygaeninae"
         ],
     }
-    enriched = enrich_record(doc)
-    record = DarwinCoreRecord(**enriched)
-    print(record.model_dump_json(indent=2, exclude_none=True))
+    enriched: DarwinCoreRecord = enrich_record(doc)
+    print(enriched.model_dump_json(indent=2, exclude_none=True))
 
 #NOTE: These are not (yet) covered:
 # verbatimIdentification: str | None = Field( default=None, description="Verbatim taxonomic identification as written on the label.")
