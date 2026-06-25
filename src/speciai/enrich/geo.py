@@ -305,6 +305,10 @@ def enrich_locations(location_texts: list[str]) -> dict[str, str | None]:
         if loc_data is not None:
             locations.append({'text': loc_text, 'loc': loc_data})
 
+    # No valid location hit
+    if not locations:
+        return {}
+
     finest_location = sorted(
         locations,
         key=lambda loc: loc['loc'].raw.get("place_rank", 0)
