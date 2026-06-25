@@ -15,7 +15,7 @@ def enrich_record(doc: dict[str, list[str] | str]) -> DarwinCoreRecord:
     #NOTE: This is hard-coded since all records use this system so far.
     output['geodeticDatum'] = "WGS84"
     output['verbatimCoordinateSystem'] = "WGS84"
-    output['verbatimCoordinates'] = doc['verbatimCoordinates']
+    output['verbatimCoordinates'] = doc.get('verbatimCoordinates')
     #NOTE: These are not (yet) covered:
     # coordinateUncertaintyInMeters: float | None = Field( default=None, ge=0, description="Horizontal coordinate uncertainty, in metres.")
     # verbatimCoordinateSystem: str | None = Field( default=None, description="Coordinate system of the verbatim coordinates.")
@@ -41,30 +41,6 @@ def enrich_record(doc: dict[str, list[str] | str]) -> DarwinCoreRecord:
     record = DarwinCoreRecord(**output)
 
     return record
-
-if __name__ == "__main__":
-    doc = {
-      "location": ["CH SH.", "ifcrishausen", "Chlosterfeid,"],
-      "verbatimCoordinates": "Koord. .686.7/288.5",
-      "catalogNumber": [ "ETHZ-ENT", "D", "0082619", "OO" ],
-      "authorship": [
-            "(Linnaeus, 1758)",
-            "leg. L. Vidmer",
-            "det. L. Widmer",
-            "det. L. Widmer 1999",
-            "Raymond Guenin 2017",
-      ],
-      "scientificName": [
-            "Zygaena",
-            "filipendalae",
-            "Zygaena",
-            "filipendulae",
-            "Zygaenidae:",
-            "Zygaeninae"
-        ],
-    }
-    enriched: DarwinCoreRecord = enrich_record(doc)
-    print(enriched.model_dump_json(indent=2, exclude_none=True))
 
 #NOTE: These are not (yet) covered:
 # verbatimIdentification: str | None = Field( default=None, description="Verbatim taxonomic identification as written on the label.")
