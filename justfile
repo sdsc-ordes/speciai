@@ -23,7 +23,7 @@ develop *args:
     just nix::develop "default" "$@"
 
 # Format the project.
-format *args: setup
+format *args:
     treefmt "$@"
 
 # Setup the project.
