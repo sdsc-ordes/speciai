@@ -18,6 +18,10 @@ MAX_UPLOAD_BYTES = 25 * 1024 * 1024
 # Kept alive for the process lifetime; uploads are scratch files.
 _UPLOAD_DIR = tempfile.TemporaryDirectory(prefix="speciai-uploads-")
 
+# Strong references to background tasks so the GC cannot collect them mid-run,
+# which would leave a job stuck in RUNNING and hang the SSE stream.
+_BACKGROUND_TASKS: set[asyncio.Task] = set()
+
 
 def _templates(request: Request):
     return request.app.state.templates
@@ -40,9 +44,12 @@ async def create_job(request: Request, image: UploadFile) -> Response:
     if len(data) > MAX_UPLOAD_BYTES:
         return Response("Image is too large (max 25 MB).", status_code=400)
 
+    safe_name = Path(image.filename or "upload").name
     dest = Path(_UPLOAD_DIR.name)
-    job = request.app.state.jobs.create(image_path=dest / image.filename)
+    job = request.app.state.jobs.create(image_path=dest / safe_name)
     job.image_path.write_bytes(data)
 
-    asyncio.create_task(run_job(job, request.app.state.engine))  # noqa: RUF006
+    task = asyncio.create_task(run_job(job, request.app.state.engine))
+    _BACKGROUND_TASKS.add(task)
+    task.add_done_callback(_BACKGROUND_TASKS.discard)
     return RedirectResponse(url="/jobs/{job_id}".format(job_id=job.id), status_code=303)

@@ -6,6 +6,7 @@ from http import HTTPStatus
 
 import speciai.web.routes as routes_mod
 from fastapi import FastAPI
+from speciai.web.routes import MAX_UPLOAD_BYTES
 from starlette.testclient import TestClient
 
 from speciai.web.app import create_app
@@ -34,7 +35,7 @@ def _png_bytes() -> bytes:
     )
 
 
-def test_start_page_renders(monkeypatch):
+def test_start_page_renders():
     app = create_app(engine=_FakeEngine())
     with TestClient(app) as client:
         resp = client.get("/")
@@ -65,6 +66,18 @@ def test_post_jobs_rejects_non_image():
         resp = client.post(
             "/jobs",
             files={"image": ("notes.txt", io.BytesIO(b"hello"), "text/plain")},
+            follow_redirects=False,
+        )
+    assert resp.status_code == HTTPStatus.BAD_REQUEST
+
+
+def test_post_jobs_rejects_oversized_image():
+    app = create_app(engine=_FakeEngine())
+    big = b"x" * (MAX_UPLOAD_BYTES + 1)
+    with TestClient(app) as client:
+        resp = client.post(
+            "/jobs",
+            files={"image": ("big.png", io.BytesIO(big), "image/png")},
             follow_redirects=False,
         )
     assert resp.status_code == HTTPStatus.BAD_REQUEST
