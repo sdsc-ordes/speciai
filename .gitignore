@@ -22,6 +22,9 @@ CLAUDE.md
 *.dec.*
 .env
 
+# data dir
+data/
+
 # Direnv cache folder.
 .direnv
 # Devenv cache folder.
