@@ -16,7 +16,7 @@ from pydantic import BaseModel
 from speciai.ocr import OCRResult
 
 # A line that is mostly digits, separators and the degree sign looks like coordinates.
-_COORD_RE = re.compile(r"^[\s\d.,;:/'\"NSEW°+-]+$")
+_COORD_RE = re.compile(r"^[\s\d.,;:/'\"NSEW\xb0+-]+$")
 _YEAR_RE = re.compile(r"\b(1[6-9]\d{2}|20\d{2})\b")
 
 
@@ -34,7 +34,11 @@ class ClassifiedRecord(BaseModel):
 
 
 def _looks_like_coordinates(text: str) -> bool:
-    return bool(text.strip()) and bool(_COORD_RE.match(text)) and any(c.isdigit() for c in text)
+    return (
+        bool(text.strip())
+        and bool(_COORD_RE.match(text))
+        and any(c.isdigit() for c in text)
+    )
 
 
 def _looks_like_scientific_name(text: str) -> bool:
