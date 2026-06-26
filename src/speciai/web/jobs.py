@@ -67,8 +67,13 @@ async def run_job(job: Job, engine: OCREngine) -> None:
     job.status = JobStatus.RUNNING
 
     def on_event(event: StageEvent) -> None:
-        job.stage = event.stage
-        loop.call_soon_threadsafe(job.queue.put_nowait, event)
+        # Called from the worker thread: hop back to the loop so the stage
+        # update and the queue push both happen on the event-loop side.
+        def deliver() -> None:
+            job.stage = event.stage
+            job.queue.put_nowait(event)
+
+        loop.call_soon_threadsafe(deliver)
 
     try:
         record = await asyncio.to_thread(pipeline_run, job.image_path, engine, on_event)

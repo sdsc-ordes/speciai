@@ -38,7 +38,9 @@ async def test_run_job_success(monkeypatch):
         drained.append(item)
     assert job.status is JobStatus.DONE
     assert job.record.scientificName == "Papilio machaon"
-    assert drained[0].stage is Stage.OCR
+    # The full event sequence is delivered in order, before the sentinel.
+    assert [e.stage for e in drained] == [Stage.OCR, Stage.ENRICH]
+    assert job.stage is Stage.ENRICH
 
 
 @pytest.mark.asyncio
