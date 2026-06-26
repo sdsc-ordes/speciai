@@ -27,6 +27,7 @@ format *args: setup
     treefmt "$@"
 
 # Setup the project.
+[group('tooling')]
 setup *args: external::fetch
     cd "{{root_dir}}" \
       && uv sync \
