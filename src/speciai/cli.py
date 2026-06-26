@@ -13,17 +13,20 @@ def _cmd_ocr(args: argparse.Namespace) -> None:
         result = engine.run(image_path)
         print(json.dumps(result.serialize(include_bbox=args.display_box_coord)))
 
-def _cmd_classify(args: argparse.Namespace) -> None:
-    for record_path in args.ocr_results:
-        ocr_result =OCRResult.model_validate_json(record_path.read_text())
-        classified = classify_images(ocr_result)
-        print(json.dumps(classified))
 
 def _cmd_enrich(args: argparse.Namespace) -> None:
     for record_path in args.records:
-        record = json.load(open(record_path, 'r'))
+        record = json.load(open(record_path, "r"))
         enriched = enrich_record(record)
         print(enriched.model_dump_json(indent=2, exclude_none=True))
+
+
+def _cmd_serve(args: argparse.Namespace) -> None:
+    import uvicorn  # noqa: PLC0415
+
+    from speciai.web.app import create_app  # noqa: PLC0415
+
+    uvicorn.run(create_app(), host=args.host, port=args.port)
 
 
 def main() -> None:
@@ -35,13 +38,16 @@ def main() -> None:
     ocr.add_argument("--display-box-coord", action=argparse.BooleanOptionalAction, default=True)
     ocr.set_defaults(func=_cmd_ocr)
 
-    classify = subparsers.add_parser("classify", help="Classify OCR'd label text into Darwin Core fields.")
-    classify.add_argument("ocr_results", nargs="+", type=Path, metavar="OCR_JSON")
-    classify.set_defaults(func=_cmd_classify)
-
-    enrich = subparsers.add_parser("enrich", help="Enrich json records with external metadata.")
+    enrich = subparsers.add_parser(
+        "enrich", help="Enrich json records with external metadata."
+    )
     enrich.add_argument("records", nargs="+", type=Path, metavar="RECORD")
     enrich.set_defaults(func=_cmd_enrich)
+
+    serve = subparsers.add_parser("serve", help="Run the review web server.")
+    serve.add_argument("--host", default="127.0.0.1")
+    serve.add_argument("--port", type=int, default=8000)
+    serve.set_defaults(func=_cmd_serve)
 
     args = parser.parse_args()
     args.func(args)
