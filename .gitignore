@@ -18,6 +18,10 @@ AGENTS.md
 CLAUDE.md
 .claude/
 
+# external deps
+external/*
+!external/vendir.*yml
+
 # secrets
 *.dec.*
 .env

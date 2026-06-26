@@ -37,12 +37,12 @@ flowchart TD
 
 ## Stages
 
-| # | Stage | Tool / model | Output |
-|---|---|---|---|
-| 1 | OCR | `doctr` | Hierarchical JSON preserving label layout |
-| 2 | Classification | Gemma 4 (primary) or fine-tuned BERT | Darwin Core–keyed JSON |
-| 3 | Enrichment | Nominatim, Wikidata, pygbif, `dateutils` | Normalised field values |
-| 4 | Human review | Interactive pre-filled form | Confirmed / edited record |
+| #   | Stage          | Tool / model                             | Output                                    |
+| --- | -------------- | ---------------------------------------- | ----------------------------------------- |
+| 1   | OCR            | `doctr`                                  | Hierarchical JSON preserving label layout |
+| 2   | Classification | Gemma 4 (primary) or fine-tuned BERT     | Darwin Core–keyed JSON                    |
+| 3   | Enrichment     | Nominatim, Wikidata, pygbif, `dateutils` | Normalised field values                   |
+| 4   | Human review   | Interactive pre-filled form              | Confirmed / edited record                 |
 
 ## Infrastructure
 
