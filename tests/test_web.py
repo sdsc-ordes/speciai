@@ -4,8 +4,10 @@ import base64
 import io
 from http import HTTPStatus
 
+import speciai.pipeline as pipeline_mod
 import speciai.web.routes as routes_mod
 from fastapi import FastAPI
+from speciai.schema import DarwinCoreRecord
 from speciai.web.routes import MAX_UPLOAD_BYTES
 from starlette.testclient import TestClient
 
@@ -81,3 +83,32 @@ def test_post_jobs_rejects_oversized_image():
             follow_redirects=False,
         )
     assert resp.status_code == HTTPStatus.BAD_REQUEST
+
+
+def test_progress_page_404_for_unknown_job():
+    app = create_app(engine=_FakeEngine())
+    with TestClient(app) as client:
+        assert client.get("/jobs/nope").status_code == HTTPStatus.NOT_FOUND
+
+
+def test_sse_stream_emits_done(monkeypatch, fake_ocr_result):
+    # Use the real runner but a fake engine + stubbed enrich for a deterministic run.
+    monkeypatch.setattr(
+        pipeline_mod, "enrich_record", lambda doc: DarwinCoreRecord(scientificName="X")
+    )
+
+    class _Engine:
+        def run(self, image_path):
+            return fake_ocr_result
+
+    app = create_app(engine=_Engine())
+    with TestClient(app) as client:
+        resp = client.post(
+            "/jobs",
+            files={"image": ("s.png", io.BytesIO(_png_bytes()), "image/png")},
+            follow_redirects=False,
+        )
+        job_id = resp.headers["location"].split("/")[-1]
+        body = client.get(f"/jobs/{job_id}/events").text
+    assert '"stage":"ocr"' in body
+    assert '"status":"done"' in body

@@ -1,0 +1,14 @@
+{% extends "base.html" %}
+{% block content %}
+<h1>Reading label...</h1>
+<p>You can leave this page open until it is ready to review.</p>
+<ul class="stepper" id="stepper">
+  {% for stage in stages %}
+  <li data-stage="{{ stage }}" class="step">{{ stage }}</li>
+  {% endfor %}
+</ul>
+<noscript><meta http-equiv="refresh" content="3" /></noscript>
+<script>
+  window.SPECIAI_JOB_ID = "{{ job_id }}";
+</script>
+{% endblock %}
