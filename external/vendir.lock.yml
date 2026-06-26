@@ -1,7 +1,7 @@
 apiVersion: vendir.k14s.io/v1alpha1
 directories:
 - contents:
-  - configDigest: c05576eb737f75469e318b3e1f2f8252ba8587e7c1a294bfcebdee57f2252adc
+  - configDigest: 77de94bc33046850c1c890d23e93ad7faebf1cc5e962c367dcdab7610cafc7f7
     git:
       commitTitle: 'chore(sbx): update list of rcp models'
       sha: b618ef3b8f3c98647baa94487d2b54847e7f975c
