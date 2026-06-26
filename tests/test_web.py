@@ -131,6 +131,8 @@ def test_review_renders_record(monkeypatch, fake_ocr_result):
     assert "Papilio machaon" in resp.text
     assert "Switzerland" in resp.text
     assert 'name="scientificName"' in resp.text
+    # The page wires the image panel to the job's image endpoint.
+    assert f"/jobs/{job_id}/image" in resp.text
 
 
 def test_image_served(monkeypatch, fake_ocr_result):
@@ -139,6 +141,12 @@ def test_image_served(monkeypatch, fake_ocr_result):
     client.__exit__(None, None, None)
     assert resp.status_code == HTTPStatus.OK
     assert resp.headers["content-type"].startswith("image/")
+
+
+def test_image_404_for_unknown_job():
+    app = create_app(engine=_FakeEngine())
+    with TestClient(app) as client:
+        assert client.get("/jobs/nope/image").status_code == HTTPStatus.NOT_FOUND
 
 
 def test_sse_stream_emits_done(monkeypatch, fake_ocr_result):
