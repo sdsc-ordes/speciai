@@ -6,8 +6,11 @@ flake_dir := root_dir / "tools/nix"
 output_dir := root_dir / ".output"
 build_dir := output_dir / "build"
 
+[group('modules')]
 mod external "./tools/just/external.just"
+[group('modules')]
 mod nix "./tools/just/nix.just"
+[group('modules')]
 mod sops "./tools/just/sops.just"
 
 # Default target if you do not specify a target.
@@ -15,6 +18,7 @@ default:
     just --list --unsorted
 
 # Enter the default Nix development shell and execute the command `"$@`.
+[group('tooling')]
 develop *args:
     just nix::develop "default" "$@"
 
@@ -23,6 +27,7 @@ format *args: setup
     treefmt "$@"
 
 # Setup the project.
+[group('tooling')]
 setup *args: external::fetch
     cd "{{root_dir}}" \
       && uv sync \
@@ -30,11 +35,12 @@ setup *args: external::fetch
       && bash tools/scripts/setup-config-files.sh
 
 # Run commands over the ci development shell.
+[group('tooling')]
 ci *args:
     just nix::develop "ci" "$@"
 
 # Lint the project.
-[group('general')]
+[group('tooling')]
 lint *args:
     ruff check
 
@@ -57,8 +63,3 @@ test *args:
 [group('general')]
 run *args:
     uv run speciai "$@"
-
-# Run the Jupyter notebook.
-[group('general')]
-notebook *args:
-    uv run python -m notebook "$@"
