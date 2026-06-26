@@ -22,7 +22,15 @@ dependencies = [
 [dependency-groups]
 dev = [
     "notebook>=7.3.2",
-    "pytest>=8.4.2",
+    "pytest-asyncio>=0.23",
+]
+web = [
+    "fastapi>=0.115",
+    "uvicorn[standard]>=0.30",
+    "jinja2>=3.1",
+    "python-multipart>=0.0.9",
+    "sse-starlette>=2.1",
+    "httpx>=0.27",  # required by starlette TestClient
 ]
 
 [project.scripts]
@@ -38,6 +46,9 @@ exclude = [
     ".devenv",
     ".output",
 ]
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
 
 [tool.ruff]
 extend-include = ["*.ipynb"]
