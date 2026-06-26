@@ -202,6 +202,108 @@ assert set(CANONICAL_COLUMN_ORDER) == set(DarwinCoreRecord.model_fields), (
 )
 
 
+# Review-form field groups. Every specimen field belongs to exactly one group,
+# in display order. Within a group the verbatim (as-read) term leads, then the
+# interpreted/inferred terms derived from it, then plain related terms. The role
+# ("verbatim" | "interpreted" | "plain") drives the review form's grouping and
+# its as-read / inferred treatment; it does not affect CSV/XLSX export.
+FIELD_GROUPS: tuple[tuple[str, str, tuple[tuple[str, str], ...]], ...] = (
+    (
+        "identification",
+        "Identification",
+        (
+            ("verbatimIdentification", "verbatim"),
+            ("scientificName", "interpreted"),
+            ("scientificNameAuthorship", "interpreted"),
+            ("genus", "interpreted"),
+            ("specificEpithet", "interpreted"),
+            ("infraspecificEpithet", "interpreted"),
+            ("kingdom", "interpreted"),
+            ("phylum", "interpreted"),
+            ("order", "interpreted"),
+            ("family", "interpreted"),
+            ("subfamily", "interpreted"),
+            ("tribe", "interpreted"),
+            ("taxonId", "interpreted"),
+            ("identifiedBy", "plain"),
+            ("dateIdentified", "plain"),
+            ("typeStatus", "plain"),
+        ),
+    ),
+    (
+        "event",
+        "Collection event",
+        (
+            ("verbatimEventDate", "verbatim"),
+            ("eventDate", "interpreted"),
+            ("recordedBy", "plain"),
+        ),
+    ),
+    (
+        "locality",
+        "Locality",
+        (
+            ("verbatimLocality", "verbatim"),
+            ("locality", "interpreted"),
+            ("continent", "interpreted"),
+            ("country", "interpreted"),
+            ("countryCode", "interpreted"),
+            ("stateProvince", "interpreted"),
+        ),
+    ),
+    (
+        "coordinates",
+        "Coordinates",
+        (
+            ("verbatimCoordinates", "verbatim"),
+            ("verbatimCoordinateSystem", "verbatim"),
+            ("decimalLatitude", "interpreted"),
+            ("decimalLongitude", "interpreted"),
+            ("geodeticDatum", "interpreted"),
+            ("coordinateUncertaintyInMeters", "interpreted"),
+        ),
+    ),
+    (
+        "organism",
+        "Organism",
+        (
+            ("sex", "plain"),
+            ("lifeStage", "plain"),
+            ("organismRemarks", "plain"),
+        ),
+    ),
+    (
+        "record",
+        "Catalog & record",
+        (
+            ("catalogNumber", "plain"),
+            ("collectionCode", "plain"),
+            ("otherCatalogNumbers", "plain"),
+            ("preparations", "plain"),
+        ),
+    ),
+    (
+        "provenance",
+        "Provenance",
+        (
+            ("verbatimLabel", "verbatim"),
+            ("associatedMedia", "plain"),
+            ("associatedReferences", "plain"),
+        ),
+    ),
+)
+
+_GROUPED_FIELDS = [
+    name for _key, _label, members in FIELD_GROUPS for name, _role in members
+]
+assert set(_GROUPED_FIELDS) == set(DarwinCoreRecord.model_fields), (
+    "FIELD_GROUPS is out of sync with DarwinCoreRecord fields"
+)
+assert len(_GROUPED_FIELDS) == len(DarwinCoreRecord.model_fields), (
+    "FIELD_GROUPS lists a field more than once"
+)
+
+
 DWC_TERMS_BASE_IRI = "http://rs.tdwg.org/dwc/terms/"
 
 
