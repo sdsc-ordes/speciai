@@ -1,11 +1,20 @@
-{% extends "base.html" %}
-{% block content %}
-<div class="dropzone-label">
+{% extends "base.html" %} {% block subtitle %}Progress{% endblock %} {% block
+content %}
+<div class="section-label">
   <span aria-hidden="true">&#9675;</span>
   PROCESSING
 </div>
 <h1>Reading label...</h1>
-<p>You can leave this page open until it is ready to review.</p>
+<p class="lead">You can leave this page open until it is ready to review.</p>
+<div class="progress">
+  <div class="progress-head">
+    <span class="progress-label">Overall progress</span>
+    <span class="progress-pct" id="progress-pct">0%</span>
+  </div>
+  <div class="progress-track">
+    <div class="progress-fill" id="progress-fill" style="width: 0%"></div>
+  </div>
+</div>
 <ul class="stepper" id="stepper">
   {% for stage in stages %}
   <li data-stage="{{ stage }}" class="step">{{ stage }}</li>
@@ -13,6 +22,6 @@
 </ul>
 <noscript><meta http-equiv="refresh" content="3" /></noscript>
 <script>
-  window.SPECIAI_JOB_ID = "{{ job_id }}";
+  window.SPECIAI_JOB_ID = "{{ job_id }}"
 </script>
 {% endblock %}
