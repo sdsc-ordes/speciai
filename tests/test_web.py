@@ -97,6 +97,50 @@ def test_sse_404_for_unknown_job():
         assert client.get("/jobs/nope/events").status_code == HTTPStatus.NOT_FOUND
 
 
+def _completed_job_client(monkeypatch, fake_ocr_result):
+    monkeypatch.setattr(
+        pipeline_mod,
+        "enrich_record",
+        lambda doc: DarwinCoreRecord(
+            scientificName="Papilio machaon", country="Switzerland"
+        ),
+    )
+
+    class _Engine:
+        def run(self, image_path):
+            return fake_ocr_result
+
+    app = create_app(engine=_Engine())
+    client = TestClient(app)
+    client.__enter__()
+    resp = client.post(
+        "/jobs",
+        files={"image": ("s.png", io.BytesIO(_png_bytes()), "image/png")},
+        follow_redirects=False,
+    )
+    job_id = resp.headers["location"].split("/")[-1]
+    client.get(f"/jobs/{job_id}/events")  # drain to completion
+    return client, job_id
+
+
+def test_review_renders_record(monkeypatch, fake_ocr_result):
+    client, job_id = _completed_job_client(monkeypatch, fake_ocr_result)
+    resp = client.get(f"/jobs/{job_id}/review")
+    client.__exit__(None, None, None)
+    assert resp.status_code == HTTPStatus.OK
+    assert "Papilio machaon" in resp.text
+    assert "Switzerland" in resp.text
+    assert 'name="scientificName"' in resp.text
+
+
+def test_image_served(monkeypatch, fake_ocr_result):
+    client, job_id = _completed_job_client(monkeypatch, fake_ocr_result)
+    resp = client.get(f"/jobs/{job_id}/image")
+    client.__exit__(None, None, None)
+    assert resp.status_code == HTTPStatus.OK
+    assert resp.headers["content-type"].startswith("image/")
+
+
 def test_sse_stream_emits_done(monkeypatch, fake_ocr_result):
     # Use the real runner but a fake engine + stubbed enrich for a deterministic run.
     monkeypatch.setattr(

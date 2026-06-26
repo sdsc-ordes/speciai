@@ -1,0 +1,22 @@
+{% extends "base.html" %}
+{% block content %}
+<h1>Review record</h1>
+<div class="review">
+  <figure class="image-panel">
+    <img src="/jobs/{{ job_id }}/image" alt="Specimen label" />
+  </figure>
+  <form class="record-form" method="post" action="/jobs/{{ job_id }}/export?format=csv">
+    {% for field in fields %}
+    <label class="field">
+      <span class="field-label">{{ field.label }}</span>
+      <input type="{{ field.type }}" name="{{ field.name }}"
+             value="{{ field.value }}" {% if field.type == 'number' %}step="any"{% endif %} />
+    </label>
+    {% endfor %}
+    <div class="actions">
+      <button type="submit" formaction="/jobs/{{ job_id }}/export?format=csv">Export CSV</button>
+      <button type="submit" formaction="/jobs/{{ job_id }}/export?format=json">Export JSON</button>
+    </div>
+  </form>
+</div>
+{% endblock %}

@@ -8,10 +8,11 @@ import tempfile
 from pathlib import Path
 
 from fastapi import APIRouter, HTTPException, Request, UploadFile
-from fastapi.responses import HTMLResponse, RedirectResponse, Response
+from fastapi.responses import FileResponse, HTMLResponse, RedirectResponse, Response
 from sse_starlette.sse import EventSourceResponse
 
 from speciai.pipeline import Stage
+from speciai.schema import DarwinCoreRecord, json_schema_with_terms
 from speciai.web.jobs import JobStatus, run_job
 
 router = APIRouter()
@@ -101,3 +102,51 @@ async def events(request: Request, job_id: str) -> EventSourceResponse:
             yield {"data": json.dumps({"status": "done"}, separators=(",", ":"))}
 
     return EventSourceResponse(event_stream())
+
+
+_NUMERIC = {"number", "integer"}
+
+
+def _record_fields(record: DarwinCoreRecord) -> list[dict]:
+    """Build an ordered list of field dicts for the review form."""
+    schema = json_schema_with_terms()["properties"]
+    values = record.model_dump()
+    fields = []
+    for name in DarwinCoreRecord.column_headers():
+        prop = schema[name]
+        types = prop.get("anyOf", [{"type": prop.get("type")}])
+        is_number = any(t.get("type") in _NUMERIC for t in types)
+        value = values.get(name)
+        fields.append(
+            {
+                "name": name,
+                "label": prop.get("title", name),
+                "value": "" if value is None else value,
+                "type": "number" if is_number else "text",
+            }
+        )
+    return fields
+
+
+@router.get("/jobs/{job_id}/review", response_class=HTMLResponse)
+async def review(request: Request, job_id: str) -> HTMLResponse:
+    """Render the review page for a completed job, or 404/409 if not ready."""
+    job = request.app.state.jobs.get(job_id)
+    if job is None:
+        raise HTTPException(status_code=404, detail="Unknown job")
+    if job.record is None:
+        raise HTTPException(status_code=409, detail="Record not ready")
+    return _templates(request).TemplateResponse(
+        request,
+        "review.html",
+        {"job_id": job_id, "fields": _record_fields(job.record)},
+    )
+
+
+@router.get("/jobs/{job_id}/image")
+async def image(request: Request, job_id: str) -> FileResponse:
+    """Serve the stored image file for the given job."""
+    job = request.app.state.jobs.get(job_id)
+    if job is None:
+        raise HTTPException(status_code=404, detail="Unknown job")
+    return FileResponse(job.image_path)
