@@ -6,7 +6,9 @@ from speciai.ocr import BBox, Block, Label, OCRResult
 
 
 def _block(text: str, x1: float, y1: float) -> Block:
-    return Block(text=text, confidence=0.9, bbox=BBox(x1=x1, y1=y1, x2=x1 + 0.2, y2=y1 + 0.02))
+    return Block(
+        text=text, confidence=0.9, bbox=BBox(x1=x1, y1=y1, x2=x1 + 0.2, y2=y1 + 0.02)
+    )
 
 
 @pytest.fixture

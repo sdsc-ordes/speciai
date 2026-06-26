@@ -18,6 +18,8 @@ from speciai.ocr import OCRResult
 # A line that is mostly digits, separators and the degree sign looks like coordinates.
 _COORD_RE = re.compile(r"^[\s\d.,;:/'\"NSEW\xb0+-]+$")
 _YEAR_RE = re.compile(r"\b(1[6-9]\d{2}|20\d{2})\b")
+# A scientific name is at minimum a binomial: "Genus species".
+_MIN_BINOMIAL_TOKENS = 2
 
 
 class ClassifiedRecord(BaseModel):
@@ -43,7 +45,11 @@ def _looks_like_coordinates(text: str) -> bool:
 
 def _looks_like_scientific_name(text: str) -> bool:
     tokens = text.split()
-    return len(tokens) >= 2 and tokens[0][:1].isupper() and tokens[1][:1].islower()
+    return (
+        len(tokens) >= _MIN_BINOMIAL_TOKENS
+        and tokens[0][:1].isupper()
+        and tokens[1][:1].islower()
+    )
 
 
 def classify(ocr: OCRResult) -> ClassifiedRecord:
