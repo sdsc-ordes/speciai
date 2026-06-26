@@ -32,7 +32,7 @@ class StageEvent(BaseModel):
 
 
 def _noop(event: StageEvent) -> None:
-    return None
+    """Default progress callback: ignore every event."""
 
 
 def run(

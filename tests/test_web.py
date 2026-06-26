@@ -1,6 +1,7 @@
 """Web app: factory wiring and (later) endpoint behaviour."""
 
 import base64
+import contextlib
 import io
 from http import HTTPStatus
 
@@ -97,7 +98,9 @@ def test_sse_404_for_unknown_job():
         assert client.get("/jobs/nope/events").status_code == HTTPStatus.NOT_FOUND
 
 
-def _completed_job_client(monkeypatch, fake_ocr_result):
+@contextlib.contextmanager
+def _completed_job(monkeypatch, fake_ocr_result):
+    """Yield an entered client and the id of a job driven to completion."""
     monkeypatch.setattr(
         pipeline_mod,
         "enrich_record",
@@ -110,23 +113,20 @@ def _completed_job_client(monkeypatch, fake_ocr_result):
         def run(self, image_path):
             return fake_ocr_result
 
-    app = create_app(engine=_Engine())
-    client = TestClient(app)
-    client.__enter__()
-    resp = client.post(
-        "/jobs",
-        files={"image": ("s.png", io.BytesIO(_png_bytes()), "image/png")},
-        follow_redirects=False,
-    )
-    job_id = resp.headers["location"].split("/")[-1]
-    client.get(f"/jobs/{job_id}/events")  # drain to completion
-    return client, job_id
+    with TestClient(create_app(engine=_Engine())) as client:
+        resp = client.post(
+            "/jobs",
+            files={"image": ("s.png", io.BytesIO(_png_bytes()), "image/png")},
+            follow_redirects=False,
+        )
+        job_id = resp.headers["location"].split("/")[-1]
+        client.get(f"/jobs/{job_id}/events")  # drain to completion
+        yield client, job_id
 
 
 def test_review_renders_record(monkeypatch, fake_ocr_result):
-    client, job_id = _completed_job_client(monkeypatch, fake_ocr_result)
-    resp = client.get(f"/jobs/{job_id}/review")
-    client.__exit__(None, None, None)
+    with _completed_job(monkeypatch, fake_ocr_result) as (client, job_id):
+        resp = client.get(f"/jobs/{job_id}/review")
     assert resp.status_code == HTTPStatus.OK
     assert "Papilio machaon" in resp.text
     assert "Switzerland" in resp.text
@@ -136,9 +136,8 @@ def test_review_renders_record(monkeypatch, fake_ocr_result):
 
 
 def test_image_served(monkeypatch, fake_ocr_result):
-    client, job_id = _completed_job_client(monkeypatch, fake_ocr_result)
-    resp = client.get(f"/jobs/{job_id}/image")
-    client.__exit__(None, None, None)
+    with _completed_job(monkeypatch, fake_ocr_result) as (client, job_id):
+        resp = client.get(f"/jobs/{job_id}/image")
     assert resp.status_code == HTTPStatus.OK
     assert resp.headers["content-type"].startswith("image/")
 
@@ -150,12 +149,11 @@ def test_image_404_for_unknown_job():
 
 
 def test_export_csv_round_trips(monkeypatch, fake_ocr_result):
-    client, job_id = _completed_job_client(monkeypatch, fake_ocr_result)
-    resp = client.post(
-        f"/jobs/{job_id}/export?format=csv",
-        data={"scientificName": "Papilio machaon", "country": "Switzerland"},
-    )
-    client.__exit__(None, None, None)
+    with _completed_job(monkeypatch, fake_ocr_result) as (client, job_id):
+        resp = client.post(
+            f"/jobs/{job_id}/export?format=csv",
+            data={"scientificName": "Papilio machaon", "country": "Switzerland"},
+        )
     assert resp.status_code == HTTPStatus.OK
     assert resp.headers["content-type"].startswith("text/csv")
     lines = resp.text.splitlines()
@@ -164,23 +162,21 @@ def test_export_csv_round_trips(monkeypatch, fake_ocr_result):
 
 
 def test_export_json(monkeypatch, fake_ocr_result):
-    client, job_id = _completed_job_client(monkeypatch, fake_ocr_result)
-    resp = client.post(
-        f"/jobs/{job_id}/export?format=json",
-        data={"scientificName": "Papilio machaon"},
-    )
-    client.__exit__(None, None, None)
+    with _completed_job(monkeypatch, fake_ocr_result) as (client, job_id):
+        resp = client.post(
+            f"/jobs/{job_id}/export?format=json",
+            data={"scientificName": "Papilio machaon"},
+        )
     assert resp.status_code == HTTPStatus.OK
     assert resp.json()["scientificName"] == "Papilio machaon"
 
 
 def test_export_validation_error_rerenders(monkeypatch, fake_ocr_result):
-    client, job_id = _completed_job_client(monkeypatch, fake_ocr_result)
-    resp = client.post(
-        f"/jobs/{job_id}/export?format=csv",
-        data={"decimalLatitude": "999"},  # out of [-90, 90]
-    )
-    client.__exit__(None, None, None)
+    with _completed_job(monkeypatch, fake_ocr_result) as (client, job_id):
+        resp = client.post(
+            f"/jobs/{job_id}/export?format=csv",
+            data={"decimalLatitude": "999"},  # out of [-90, 90]
+        )
     assert resp.status_code == HTTPStatus.UNPROCESSABLE_ENTITY
     assert "decimalLatitude" in resp.text
     assert "less than or equal to 90" in resp.text
@@ -194,12 +190,11 @@ def test_export_404_for_unknown_job():
 
 
 def test_export_unknown_format_returns_400(monkeypatch, fake_ocr_result):
-    client, job_id = _completed_job_client(monkeypatch, fake_ocr_result)
-    resp = client.post(
-        f"/jobs/{job_id}/export?format=xml",
-        data={"scientificName": "Papilio machaon"},
-    )
-    client.__exit__(None, None, None)
+    with _completed_job(monkeypatch, fake_ocr_result) as (client, job_id):
+        resp = client.post(
+            f"/jobs/{job_id}/export?format=xml",
+            data={"scientificName": "Papilio machaon"},
+        )
     assert resp.status_code == HTTPStatus.BAD_REQUEST
 
 

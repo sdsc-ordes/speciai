@@ -7,6 +7,7 @@ the model download.
 
 from __future__ import annotations
 
+import tempfile
 from contextlib import asynccontextmanager
 from pathlib import Path
 
@@ -30,7 +31,10 @@ def create_app(engine: OCREngine | None = None) -> FastAPI:
     async def lifespan(app: FastAPI):
         app.state.engine = engine if engine is not None else OCREngine()
         app.state.jobs = JobRegistry()
-        yield
+        # Scratch dir for uploaded images, removed deterministically on shutdown.
+        with tempfile.TemporaryDirectory(prefix="speciai-uploads-") as upload_dir:
+            app.state.upload_dir = Path(upload_dir)
+            yield
 
     app = FastAPI(title="speciai", lifespan=lifespan)
     app.state.templates = Jinja2Templates(directory=str(_TEMPLATES_DIR))
