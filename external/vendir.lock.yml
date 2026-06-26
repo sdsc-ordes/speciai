@@ -1,0 +1,9 @@
+apiVersion: vendir.k14s.io/v1alpha1
+directories:
+- contents:
+  - git:
+      commitTitle: 'chore(sbx): update list of rcp models'
+      sha: b618ef3b8f3c98647baa94487d2b54847e7f975c
+    path: .
+  path: agents
+kind: LockConfig
