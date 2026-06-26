@@ -64,7 +64,9 @@ async def progress(request: Request, job_id: str) -> HTMLResponse:
     job = request.app.state.jobs.get(job_id)
     if job is None:
         raise HTTPException(status_code=404, detail="Unknown job")
-    stages = [Stage.OCR.value, Stage.CLASSIFY.value, Stage.ENRICH.value]
+    # Three pipeline stages plus a synthetic terminal step shown until the
+    # client receives the "done" event and redirects to the review page.
+    stages = [Stage.OCR.value, Stage.CLASSIFY.value, Stage.ENRICH.value, "done"]
     return _templates(request).TemplateResponse(
         request, "progress.html", {"job_id": job_id, "stages": stages}
     )

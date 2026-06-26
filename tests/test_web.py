@@ -91,6 +91,12 @@ def test_progress_page_404_for_unknown_job():
         assert client.get("/jobs/nope").status_code == HTTPStatus.NOT_FOUND
 
 
+def test_sse_404_for_unknown_job():
+    app = create_app(engine=_FakeEngine())
+    with TestClient(app) as client:
+        assert client.get("/jobs/nope/events").status_code == HTTPStatus.NOT_FOUND
+
+
 def test_sse_stream_emits_done(monkeypatch, fake_ocr_result):
     # Use the real runner but a fake engine + stubbed enrich for a deterministic run.
     monkeypatch.setattr(
@@ -110,5 +116,10 @@ def test_sse_stream_emits_done(monkeypatch, fake_ocr_result):
         )
         job_id = resp.headers["location"].split("/")[-1]
         body = client.get(f"/jobs/{job_id}/events").text
+    # Every pipeline stage is streamed, with started/finished status, then done.
     assert '"stage":"ocr"' in body
+    assert '"stage":"classify"' in body
+    assert '"stage":"enrich"' in body
+    assert '"status":"started"' in body
+    assert '"status":"finished"' in body
     assert '"status":"done"' in body
