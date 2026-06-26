@@ -16,6 +16,7 @@ from fastapi.templating import Jinja2Templates
 
 from speciai.ocr import OCREngine
 from speciai.web.jobs import JobRegistry
+from speciai.web.routes import router
 
 _WEB_DIR = Path(__file__).resolve().parent
 _TEMPLATES_DIR = _WEB_DIR / "templates"
@@ -34,8 +35,5 @@ def create_app(engine: OCREngine | None = None) -> FastAPI:
     app = FastAPI(title="speciai", lifespan=lifespan)
     app.state.templates = Jinja2Templates(directory=str(_TEMPLATES_DIR))
     app.mount("/static", StaticFiles(directory=str(_STATIC_DIR)), name="static")
-
-    from speciai.web.routes import router  # noqa: PLC0415 - local import avoids a cycle
-
     app.include_router(router)
     return app
