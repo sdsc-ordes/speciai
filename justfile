@@ -19,9 +19,8 @@ develop *args:
     just nix::develop "default" "$@"
 
 # Format the project.
-format *args:
-    "{{root_dir}}/tools/scripts/setup-config-files.sh"
-    just develop -- treefmt "$@"
+format *args: setup
+    treefmt "$@"
 
 # Setup the project.
 setup *args: external-fetch
