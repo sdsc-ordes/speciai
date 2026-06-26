@@ -8,14 +8,19 @@ import json
 from pathlib import Path
 
 from fastapi import APIRouter, HTTPException, Request, UploadFile
-from fastapi.responses import FileResponse, HTMLResponse, RedirectResponse, Response
+from fastapi.responses import (
+    FileResponse,
+    HTMLResponse,
+    RedirectResponse,
+    Response,
+)
 from fastapi.templating import Jinja2Templates
 from pydantic import ValidationError
 from sse_starlette.sse import EventSourceResponse
 
 from speciai.io import write_csv
 from speciai.pipeline import Stage
-from speciai.schema import DarwinCoreRecord, json_schema_with_terms
+from speciai.schema import FIELD_GROUPS, DarwinCoreRecord, json_schema_with_terms
 from speciai.web.jobs import JobStatus, run_job
 
 router = APIRouter()
@@ -114,38 +119,66 @@ async def events(request: Request, job_id: str) -> EventSourceResponse:
 _NUMERIC = {"number", "integer"}
 
 
-def _build_field_specs() -> list[dict]:
-    """Static per-field form metadata (name, label, input type) in canonical order.
+def _build_group_specs() -> list[dict]:
+    """Static review-form groups (label + input type + role per field).
 
-    Derived from the annotated schema once at import; only a field's ``value``
-    varies per record, so the costly schema build never happens per request.
+    Derived from the annotated schema and FIELD_GROUPS once at import; only a
+    field's value varies per record, so the costly schema build never repeats.
     """
-    schema = json_schema_with_terms()["properties"]
-    specs = []
-    for name in DarwinCoreRecord.column_headers():
-        prop = schema[name]
-        types = prop.get("anyOf", [{"type": prop.get("type")}])
-        is_number = any(t.get("type") in _NUMERIC for t in types)
-        specs.append(
+    props = json_schema_with_terms()["properties"]
+    groups = []
+    for key, label, members in FIELD_GROUPS:
+        specs = []
+        for name, role in members:
+            prop = props[name]
+            types = prop.get("anyOf", [{"type": prop.get("type")}])
+            is_number = any(t.get("type") in _NUMERIC for t in types)
+            specs.append(
+                {
+                    "name": name,
+                    "label": prop.get("title", name),
+                    "type": "number" if is_number else "text",
+                    "role": role,
+                }
+            )
+        groups.append({"key": key, "label": label, "members": specs})
+    return groups
+
+
+_GROUP_SPECS = _build_group_specs()
+
+
+def _grouped_fields(values: dict, errors: dict | None = None) -> list[dict]:
+    """Fill the static group specs with a record's values.
+
+    Each group is split into always-visible fields (the verbatim source, any
+    populated field, or one carrying a validation error) and collapsible empty
+    fields, so the form stays scannable without losing the ability to edit blanks.
+    """
+    errors = errors or {}
+    groups = []
+    for spec in _GROUP_SPECS:
+        visible, hidden = [], []
+        for member in spec["members"]:
+            raw = values.get(member["name"])
+            field = {
+                **member,
+                "value": "" if raw is None else raw,
+                "error": errors.get(member["name"]),
+            }
+            keep = (
+                member["role"] == "verbatim" or field["value"] != "" or field["error"]
+            )
+            (visible if keep else hidden).append(field)
+        groups.append(
             {
-                "name": name,
-                "label": prop.get("title", name),
-                "type": "number" if is_number else "text",
+                "key": spec["key"],
+                "label": spec["label"],
+                "visible": visible,
+                "hidden": hidden,
             }
         )
-    return specs
-
-
-_FIELD_SPECS = _build_field_specs()
-
-
-def _record_fields(record: DarwinCoreRecord) -> list[dict]:
-    """The static field specs with this record's values filled in."""
-    values = record.model_dump()
-    return [
-        {**spec, "value": "" if values[spec["name"]] is None else values[spec["name"]]}
-        for spec in _FIELD_SPECS
-    ]
+    return groups
 
 
 @router.get("/jobs/{job_id}/review", response_class=HTMLResponse)
@@ -159,7 +192,7 @@ async def review(request: Request, job_id: str) -> HTMLResponse:
     return _templates(request).TemplateResponse(
         request,
         "review.html",
-        {"job_id": job_id, "fields": _record_fields(job.record)},
+        {"job_id": job_id, "groups": _grouped_fields(job.record.model_dump())},
     )
 
 
@@ -192,18 +225,14 @@ async def export(request: Request, job_id: str, format: str = "csv") -> Response
         record = DarwinCoreRecord.model_validate(values)
     except ValidationError as exc:
         errors = {".".join(str(p) for p in e["loc"]): e["msg"] for e in exc.errors()}
-        fields = [
-            {
-                **spec,
-                "value": values.get(spec["name"]) or "",
-                "error": errors.get(spec["name"]),
-            }
-            for spec in _FIELD_SPECS
-        ]
         return _templates(request).TemplateResponse(
             request,
             "review.html",
-            {"job_id": job_id, "fields": fields, "errors": errors},
+            {
+                "job_id": job_id,
+                "groups": _grouped_fields(values, errors),
+                "errors": errors,
+            },
             status_code=422,
         )
 
