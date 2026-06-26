@@ -183,6 +183,11 @@ async def export(request: Request, job_id: str, format: str = "csv") -> Response
             status_code=422,
         )
 
+    if format not in {"csv", "json"}:
+        raise HTTPException(
+            status_code=400, detail="Unknown format: {fmt}".format(fmt=format)
+        )
+
     if format == "json":
         return Response(
             record.model_dump_json(indent=2, exclude_none=True),
@@ -190,12 +195,17 @@ async def export(request: Request, job_id: str, format: str = "csv") -> Response
             headers={"Content-Disposition": 'attachment; filename="record.json"'},
         )
 
-    with tempfile.NamedTemporaryFile(
-        "w", suffix=".csv", delete=False, newline=""
-    ) as tmp:
-        write_csv([record], tmp.name)
-        csv_path = tmp.name
-    body = Path(csv_path).read_text(encoding="utf-8")
+    tmp_path = None
+    try:
+        with tempfile.NamedTemporaryFile(
+            "w", suffix=".csv", delete=False, newline=""
+        ) as tmp:
+            tmp_path = tmp.name
+        write_csv([record], tmp_path)
+        body = Path(tmp_path).read_text(encoding="utf-8")
+    finally:
+        if tmp_path is not None:
+            Path(tmp_path).unlink(missing_ok=True)
     return Response(
         body,
         media_type="text/csv",

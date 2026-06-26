@@ -183,7 +183,24 @@ def test_export_validation_error_rerenders(monkeypatch, fake_ocr_result):
     client.__exit__(None, None, None)
     assert resp.status_code == HTTPStatus.UNPROCESSABLE_ENTITY
     assert "decimalLatitude" in resp.text
-    assert "less than or equal to 90" in resp.text or "decimalLatitude" in resp.text
+    assert "less than or equal to 90" in resp.text
+
+
+def test_export_404_for_unknown_job():
+    app = create_app(engine=_FakeEngine())
+    with TestClient(app) as client:
+        resp = client.post("/jobs/nope/export?format=csv", data={"scientificName": "X"})
+    assert resp.status_code == HTTPStatus.NOT_FOUND
+
+
+def test_export_unknown_format_returns_400(monkeypatch, fake_ocr_result):
+    client, job_id = _completed_job_client(monkeypatch, fake_ocr_result)
+    resp = client.post(
+        f"/jobs/{job_id}/export?format=xml",
+        data={"scientificName": "Papilio machaon"},
+    )
+    client.__exit__(None, None, None)
+    assert resp.status_code == HTTPStatus.BAD_REQUEST
 
 
 def test_sse_stream_emits_done(monkeypatch, fake_ocr_result):
