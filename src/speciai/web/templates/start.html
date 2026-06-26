@@ -1,0 +1,14 @@
+{% extends "base.html" %}
+{% block content %}
+<h1>Digitize a specimen</h1>
+<p>Point speciai at a label photograph. It reads the label, fills in a species
+record, and lines it up for you to check.</p>
+<form class="dropzone" action="/jobs" method="post" enctype="multipart/form-data">
+  <label class="file-label">
+    <input type="file" name="image" accept="image/*" required
+           onchange="this.form.submit()" />
+    Choose image
+  </label>
+  <p class="hint">JPEG, PNG or TIFF</p>
+</form>
+{% endblock %}
