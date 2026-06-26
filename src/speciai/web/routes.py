@@ -73,6 +73,18 @@ async def progress(request: Request, job_id: str) -> HTMLResponse:
     )
 
 
+def _sse(payload: dict) -> dict:
+    """Wrap a payload as an SSE message with deterministic, compact JSON."""
+    return {"data": json.dumps(payload, separators=(",", ":"))}
+
+
+def _terminal_sse(job) -> dict:
+    """The closing SSE message for a job, derived from its final status."""
+    if job.status is JobStatus.ERROR:
+        return _sse({"status": "error", "error": job.error})
+    return _sse({"status": "done"})
+
+
 @router.get("/jobs/{job_id}/events")
 async def events(request: Request, job_id: str) -> EventSourceResponse:
     """Stream stage events for the given job as Server-Sent Events."""
@@ -81,25 +93,20 @@ async def events(request: Request, job_id: str) -> EventSourceResponse:
         raise HTTPException(status_code=404, detail="Unknown job")
 
     async def event_stream():
+        # The event queue is single-consumer and its terminal sentinel is
+        # emitted once. If the run already finished AND an earlier consumer
+        # drained the queue, no sentinel will arrive again -- emit the terminal
+        # event directly so a reload / "leave and return" never blocks. While
+        # the run is in flight (or its events are still buffered) we stream.
+        if job.status in (JobStatus.DONE, JobStatus.ERROR) and job.queue.empty():
+            yield _terminal_sse(job)
+            return
         while True:
             event = await job.queue.get()
             if event is None:
                 break
-            yield {
-                "data": json.dumps(
-                    {"stage": event.stage.value, "status": event.status},
-                    separators=(",", ":"),
-                )
-            }
-        if job.status is JobStatus.ERROR:
-            yield {
-                "data": json.dumps(
-                    {"status": "error", "error": job.error},
-                    separators=(",", ":"),
-                )
-            }
-        else:
-            yield {"data": json.dumps({"status": "done"}, separators=(",", ":"))}
+            yield _sse({"stage": event.stage.value, "status": event.status})
+        yield _terminal_sse(job)
 
     return EventSourceResponse(event_stream())
 

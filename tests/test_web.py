@@ -224,3 +224,31 @@ def test_sse_stream_emits_done(monkeypatch, fake_ocr_result):
     assert '"status":"started"' in body
     assert '"status":"finished"' in body
     assert '"status":"done"' in body
+
+
+def test_sse_reconnect_after_completion(monkeypatch, fake_ocr_result):
+    # Regression: a second /events connection after the queue has been drained
+    # must not hang on the empty single-consumer queue -- it should short-circuit
+    # to the terminal event (the spec's "leave the page and return" flow).
+    monkeypatch.setattr(
+        pipeline_mod, "enrich_record", lambda doc: DarwinCoreRecord(scientificName="X")
+    )
+
+    class _Engine:
+        def run(self, image_path):
+            return fake_ocr_result
+
+    app = create_app(engine=_Engine())
+    with TestClient(app) as client:
+        resp = client.post(
+            "/jobs",
+            files={"image": ("s.png", io.BytesIO(_png_bytes()), "image/png")},
+            follow_redirects=False,
+        )
+        job_id = resp.headers["location"].split("/")[-1]
+        first = client.get(f"/jobs/{job_id}/events").text  # drains the queue
+        second = client.get(f"/jobs/{job_id}/events").text  # must not block
+    assert '"status":"done"' in first
+    assert '"status":"done"' in second
+    # The reconnect replays no stage events -- it only re-emits the terminal one.
+    assert '"stage":"ocr"' not in second
