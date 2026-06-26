@@ -1,10 +1,10 @@
+# Only include skills/ directory into .agents/skills/
 apiVersion: vendir.k14s.io/v1alpha1
 kind: Config
 directories:
   - path: agents
     contents:
       - path: .
-        lazy: true
         git:
           url: https://github.com/sdsc-ordes/agents
           ref: main
