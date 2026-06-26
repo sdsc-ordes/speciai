@@ -62,4 +62,4 @@ test *args:
 # Run an executable.
 [group('general')]
 run *args:
-    uv run speciai "$@"
+    uv run --all-groups --all-extras speciai "$@"
