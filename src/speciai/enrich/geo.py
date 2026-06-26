@@ -6,8 +6,8 @@ from geopy.geocoders import Nominatim
 from geopy.location import Location
 
 OSMField = str
-DCTerm = str
-OSM_ADDRESS_MAPPINGS: dict[OSMField, DCTerm] = {
+DWCTerm = str
+OSM_ADDRESS_MAPPINGS: dict[OSMField, DWCTerm] = {
     'village': 'locality',
     'city': 'locality',
     'country_code': 'countryCode',
@@ -289,7 +289,7 @@ def parse_address(loc: Location) -> dict[str, str | None]:
         if osm in address:
             out_address[dct] = address[osm]
 
-    # DCT fields not in OSM address
+    # DWC terms not in OSM address
     if 'country_code' in address:
 
         continent = country_alpha2_to_continent_name(address['country_code'])

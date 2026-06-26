@@ -14,7 +14,7 @@ TAXONOMIC_RANKS = {
 
 @lru_cache(maxsize=1024)
 def fetch_gbif_species(genus: str, species: str) -> dict[str, str] | None:
-    """Retrieves species taxonomic data in a dictionary of dcTerms keys.
+    """Retrieves species taxonomic data in a dictionary of darwin core terms.
     Returns None if there is no species-level match."""
     taxo = {}
     resp = requests.get(
