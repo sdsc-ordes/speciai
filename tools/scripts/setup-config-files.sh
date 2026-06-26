@@ -26,6 +26,13 @@ function main() {
     rm -rf ".pre-commit-config.yaml" || true
     ln -s "tools/configs/prek/pre-commit-config.yaml" ".pre-commit-config.yaml"
 
+    rm -rf "AGENTS.md" "CLAUDE.md" || true
+    mkdir -p ".agents/skills" ".claude/skills"
+    ln -s "external/agents/AGENTS.md" "AGENTS.md"
+    ln -fs "${ROOT_DIR}"/external/agents/skills/* ".agents/skills/"
+    ln -fs "${ROOT_DIR}"/.agents/skills/* ".claude/skills/"
+    ln -s "AGENTS.md" "CLAUDE.md"
+
 }
 
 main "$@"
