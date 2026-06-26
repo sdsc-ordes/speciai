@@ -65,7 +65,7 @@ flowchart TD
 Install the web extras and start the server:
 
     uv sync --group web
-    uv run speciai serve            # or: uv run speciai serve --host 127.0.0.1 --port 8000
+    just run serve                  # or: uv run speciai serve --host 127.0.0.1 --port 8000
 
 Open http://127.0.0.1:8000, choose a specimen image, watch it go through
 OCR -> classify -> enrich, review the Darwin Core record beside the image, and
