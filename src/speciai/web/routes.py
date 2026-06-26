@@ -9,8 +9,10 @@ from pathlib import Path
 
 from fastapi import APIRouter, HTTPException, Request, UploadFile
 from fastapi.responses import FileResponse, HTMLResponse, RedirectResponse, Response
+from pydantic import ValidationError
 from sse_starlette.sse import EventSourceResponse
 
+from speciai.io import write_csv
 from speciai.pipeline import Stage
 from speciai.schema import DarwinCoreRecord, json_schema_with_terms
 from speciai.web.jobs import JobStatus, run_job
@@ -150,3 +152,52 @@ async def image(request: Request, job_id: str) -> FileResponse:
     if job is None:
         raise HTTPException(status_code=404, detail="Unknown job")
     return FileResponse(job.image_path)
+
+
+async def _form_to_values(request: Request) -> dict[str, str | None]:
+    """Parse a submitted form into a mapping of field name to value or None."""
+    form = await request.form()
+    return {key: (value or None) for key, value in form.items()}
+
+
+@router.post("/jobs/{job_id}/export")
+async def export(request: Request, job_id: str, format: str = "csv") -> Response:
+    """Export the reviewed record as CSV or JSON; re-render with errors on invalid data."""
+    job = request.app.state.jobs.get(job_id)
+    if job is None:
+        raise HTTPException(status_code=404, detail="Unknown job")
+
+    values = await _form_to_values(request)
+    try:
+        record = DarwinCoreRecord.model_validate(values)
+    except ValidationError as exc:
+        errors = {".".join(str(p) for p in e["loc"]): e["msg"] for e in exc.errors()}
+        fields = _record_fields(DarwinCoreRecord.model_construct(**{}))
+        for field in fields:
+            field["value"] = values.get(field["name"]) or ""
+            field["error"] = errors.get(field["name"])
+        return _templates(request).TemplateResponse(
+            request,
+            "review.html",
+            {"job_id": job_id, "fields": fields, "errors": errors},
+            status_code=422,
+        )
+
+    if format == "json":
+        return Response(
+            record.model_dump_json(indent=2, exclude_none=True),
+            media_type="application/json",
+            headers={"Content-Disposition": 'attachment; filename="record.json"'},
+        )
+
+    with tempfile.NamedTemporaryFile(
+        "w", suffix=".csv", delete=False, newline=""
+    ) as tmp:
+        write_csv([record], tmp.name)
+        csv_path = tmp.name
+    body = Path(csv_path).read_text(encoding="utf-8")
+    return Response(
+        body,
+        media_type="text/csv",
+        headers={"Content-Disposition": 'attachment; filename="record.csv"'},
+    )

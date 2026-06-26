@@ -149,6 +149,43 @@ def test_image_404_for_unknown_job():
         assert client.get("/jobs/nope/image").status_code == HTTPStatus.NOT_FOUND
 
 
+def test_export_csv_round_trips(monkeypatch, fake_ocr_result):
+    client, job_id = _completed_job_client(monkeypatch, fake_ocr_result)
+    resp = client.post(
+        f"/jobs/{job_id}/export?format=csv",
+        data={"scientificName": "Papilio machaon", "country": "Switzerland"},
+    )
+    client.__exit__(None, None, None)
+    assert resp.status_code == HTTPStatus.OK
+    assert resp.headers["content-type"].startswith("text/csv")
+    lines = resp.text.splitlines()
+    assert lines[0].split(",")[:2] == ["catalogNumber", "kingdom"]  # canonical header
+    assert "Papilio machaon" in resp.text
+
+
+def test_export_json(monkeypatch, fake_ocr_result):
+    client, job_id = _completed_job_client(monkeypatch, fake_ocr_result)
+    resp = client.post(
+        f"/jobs/{job_id}/export?format=json",
+        data={"scientificName": "Papilio machaon"},
+    )
+    client.__exit__(None, None, None)
+    assert resp.status_code == HTTPStatus.OK
+    assert resp.json()["scientificName"] == "Papilio machaon"
+
+
+def test_export_validation_error_rerenders(monkeypatch, fake_ocr_result):
+    client, job_id = _completed_job_client(monkeypatch, fake_ocr_result)
+    resp = client.post(
+        f"/jobs/{job_id}/export?format=csv",
+        data={"decimalLatitude": "999"},  # out of [-90, 90]
+    )
+    client.__exit__(None, None, None)
+    assert resp.status_code == HTTPStatus.UNPROCESSABLE_ENTITY
+    assert "decimalLatitude" in resp.text
+    assert "less than or equal to 90" in resp.text or "decimalLatitude" in resp.text
+
+
 def test_sse_stream_emits_done(monkeypatch, fake_ocr_result):
     # Use the real runner but a fake engine + stubbed enrich for a deterministic run.
     monkeypatch.setattr(

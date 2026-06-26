@@ -11,6 +11,7 @@
       <span class="field-label">{{ field.label }}</span>
       <input type="{{ field.type }}" name="{{ field.name }}"
              value="{{ field.value }}" {% if field.type == 'number' %}step="any"{% endif %} />
+      {% if field.error %}<span class="field-error">{{ field.error }}</span>{% endif %}
     </label>
     {% endfor %}
     <div class="actions">
