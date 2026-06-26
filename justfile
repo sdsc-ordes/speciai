@@ -24,10 +24,19 @@ format *args:
     just develop -- treefmt "$@"
 
 # Setup the project.
-setup *args:
+setup *args: external-fetch
     cd "{{root_dir}}" \
       && uv sync \
-      && prek install
+      && prek install \
+      && bash tools/scripts/setup-config-files.sh
+
+# Pull latest version matching the ref (`main`)
+external-upgrade *args:
+    vendir sync \
+        --chdir "{{root_dir}}/external/" "$@"
+
+# Pull exact reference from lockfile
+external-fetch: (external-upgrade "--locked")
 
 # Run commands over the ci development shell.
 ci *args:
