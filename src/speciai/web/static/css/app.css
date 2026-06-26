@@ -1,0 +1,498 @@
+/* speciai -- SDSC design system tokens and component styles
+   Fonts: system stacks (no external CDN allowed).
+   Space Grotesk -> headings, Switzer -> body/UI, JetBrains Mono -> code/IDs.
+   Fallback: system-ui covers both when the named fonts are not installed. */
+
+/* -----------------------------------------------------------------------
+   Token definitions
+   ----------------------------------------------------------------------- */
+
+:root {
+  /* Surfaces */
+  --op-bg: #fafafa;
+  --op-surface: #ffffff;
+  --op-surface-2: #f5f5f5;
+  --op-surface-active: #e9ebef;
+  --op-border: #e5e5e5;
+  --op-border-subtle: #f0f0f2;
+
+  /* Brand blues */
+  --op-blue-darker: #161438;
+  --op-blue-dark: #26245c;
+  --op-blue-mid: #3a4585;
+  --op-blue: #5461a6;
+  --op-blue-light: #8a94c9;
+  --op-blue-pale: #dddeec;
+
+  /* Secondary accent (progress-complete states and highlights) */
+  --op-green: #90ca42;
+
+  /* Text */
+  --op-text: #000000;
+  --op-text-2: #525252;
+  --op-text-muted: #848484;
+  --op-text-faint: #a3a3a3;
+  --op-text-on-blue: #ffffff;
+
+  /* Links */
+  --op-link: #5461a6;
+  --op-link-hover: #26245c;
+
+  /* Status (badges, alerts, toasts only -- never chrome) */
+  --op-success: #10b981;
+  --op-warning: #f59e0b;
+  --op-error: #ef4444;
+  --op-info: #3b82f6;
+
+  /* Footer */
+  --op-footer-bg: #000000;
+  --op-footer-border: rgba(255, 255, 255, 0.1);
+}
+
+.dark {
+  /* Surfaces */
+  --op-bg: #0c0c12;
+  --op-surface: #141420;
+  --op-surface-2: #1c1c2c;
+  --op-surface-active: #1a1834;
+  --op-border: #242438;
+  --op-border-subtle: #1a1a28;
+
+  /* Brand blues (pale steps to deep blue in dark mode) */
+  --op-blue-darker: #161438;
+  --op-blue-dark: #26245c;
+  --op-blue-mid: #3a4585;
+  --op-blue: #5461a6;
+  --op-blue-light: #8a94c9;
+  --op-blue-pale: #1a1834;
+
+  /* Secondary accent (stepped lighter for near-black) */
+  --op-green: #a4d564;
+
+  /* Text */
+  --op-text: #f4f4fc;
+  --op-text-2: #c0c0dc;
+  --op-text-muted: #9898b8;
+  --op-text-faint: #6a6a88;
+  --op-text-on-blue: #ffffff;
+
+  /* Links */
+  --op-link: #8a94c9;
+  --op-link-hover: #5461a6;
+
+  /* Status (stepped lighter for near-black) */
+  --op-success: #4ade80;
+  --op-warning: #fbbf24;
+  --op-error: #f87171;
+  --op-info: #5461a6;
+
+  /* Footer */
+  --op-footer-bg: #000000;
+  --op-footer-border: rgba(255, 255, 255, 0.1);
+}
+
+/* -----------------------------------------------------------------------
+   Reset and base
+   ----------------------------------------------------------------------- */
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html {
+  font-size: 16px;
+  -webkit-text-size-adjust: 100%;
+}
+
+body {
+  font-family: 'Switzer', system-ui, sans-serif;
+  font-size: 1rem;
+  font-weight: 400;
+  line-height: 1.6;
+  color: var(--op-text-2);
+  background: var(--op-bg);
+  min-height: 100vh;
+}
+
+h1, h2, h3, h4, h5, h6 {
+  font-family: 'Space Grotesk', system-ui, sans-serif;
+  font-weight: 700;
+  line-height: 1.25;
+  color: var(--op-text);
+}
+
+h1 { font-size: 2rem;   letter-spacing: -0.02em; }
+h2 { font-size: 1.5rem; letter-spacing: -0.02em; }
+h3 { font-size: 1.25rem; font-weight: 600; }
+h4 { font-size: 1.125rem; font-weight: 600; }
+
+p {
+  color: var(--op-text-2);
+  line-height: 1.6;
+}
+
+a {
+  color: var(--op-link);
+  text-decoration: underline;
+  transition: color 0.15s;
+}
+
+a:hover,
+a:focus {
+  color: var(--op-link-hover);
+}
+
+/* -----------------------------------------------------------------------
+   Top bar
+   ----------------------------------------------------------------------- */
+
+.topbar {
+  position: sticky;
+  top: 0;
+  z-index: 100;
+  display: flex;
+  align-items: center;
+  height: 56px;
+  padding: 0 24px;
+  background: var(--op-blue-dark);
+  border-bottom: 1px solid var(--op-blue-darker);
+}
+
+.brand {
+  font-family: 'Space Grotesk', system-ui, sans-serif;
+  font-size: 1rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--op-text-on-blue);
+}
+
+/* -----------------------------------------------------------------------
+   Page container
+   ----------------------------------------------------------------------- */
+
+.container {
+  max-width: 1280px;
+  margin: 0 auto;
+  padding: 48px 24px;
+}
+
+/* -----------------------------------------------------------------------
+   Start page -- dropzone card
+   ----------------------------------------------------------------------- */
+
+.dropzone {
+  margin-top: 32px;
+  padding: 48px 32px;
+  background: var(--op-surface);
+  border: 1px solid var(--op-border);
+  /* Square corners per design system */
+  border-radius: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 16px;
+}
+
+.dropzone .file-label {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 12px 24px;
+  background: var(--op-blue);
+  color: var(--op-text-on-blue);
+  font-family: 'Switzer', system-ui, sans-serif;
+  font-size: 0.875rem;
+  font-weight: 400;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: background 0.15s;
+  min-height: 44px;
+}
+
+.dropzone .file-label:hover {
+  background: var(--op-blue-mid);
+}
+
+.dropzone .file-label:focus-within {
+  outline: 2px solid var(--op-blue);
+  outline-offset: 2px;
+}
+
+/* Hide the native file input visually but keep it accessible */
+.dropzone .file-label input[type="file"] {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}
+
+.dropzone .hint {
+  font-size: 0.875rem;
+  color: var(--op-text-muted);
+  font-family: 'Switzer', system-ui, sans-serif;
+}
+
+/* Section label above form (muted uppercase label pattern) */
+.dropzone-label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-family: 'Switzer', system-ui, sans-serif;
+  font-size: 0.875rem;
+  font-weight: 500;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--op-text-muted);
+  margin-bottom: 24px;
+}
+
+/* -----------------------------------------------------------------------
+   Progress page -- stepper
+   ----------------------------------------------------------------------- */
+
+.stepper {
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  margin-top: 32px;
+  border: 1px solid var(--op-border);
+  background: var(--op-surface);
+}
+
+.step {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 16px 24px;
+  font-family: 'Switzer', system-ui, sans-serif;
+  font-size: 0.9375rem;
+  color: var(--op-text-muted);
+  border-bottom: 1px solid var(--op-border);
+  position: relative;
+  transition: background 0.15s, color 0.15s;
+}
+
+.step:last-child {
+  border-bottom: none;
+}
+
+/* Step state indicator dot */
+.step::before {
+  content: '';
+  display: block;
+  flex-shrink: 0;
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: var(--op-border);
+  border: 2px solid var(--op-border);
+  transition: background 0.2s, border-color 0.2s;
+}
+
+/* Running step (active / in-progress) */
+.step.running {
+  color: var(--op-text);
+  background: var(--op-surface-active);
+}
+
+.step.running::before {
+  background: var(--op-blue);
+  border-color: var(--op-blue);
+}
+
+/* Completed step */
+.step.done {
+  color: var(--op-text);
+  background: var(--op-surface);
+}
+
+.step.done::before {
+  background: var(--op-green);
+  border-color: var(--op-green);
+}
+
+/* Error step */
+.step.error {
+  color: var(--op-error);
+}
+
+.step.error::before {
+  background: var(--op-error);
+  border-color: var(--op-error);
+}
+
+/* -----------------------------------------------------------------------
+   Review page -- two-column layout
+   ----------------------------------------------------------------------- */
+
+.review {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 32px;
+  align-items: start;
+  margin-top: 32px;
+}
+
+@media (max-width: 768px) {
+  .review {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* Image panel (left column) */
+.image-panel {
+  margin: 0;
+  padding: 24px;
+  background: var(--op-surface);
+  border: 1px solid var(--op-border);
+  border-radius: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.image-panel img {
+  display: block;
+  width: 100%;
+  height: auto;
+  max-width: 100%;
+  border: 1px solid var(--op-border-subtle);
+}
+
+/* Record form (right column) */
+.record-form {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  padding: 24px;
+  background: var(--op-surface);
+  border: 1px solid var(--op-border);
+  border-radius: 0;
+}
+
+/* Individual field wrapper */
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+/* Field label */
+.field-label {
+  font-family: 'Switzer', system-ui, sans-serif;
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: var(--op-text-2);
+  letter-spacing: 0.01em;
+}
+
+/* Field inputs */
+.field input,
+.record-form input[type="text"],
+.record-form input[type="number"] {
+  width: 100%;
+  padding: 8px 12px;
+  font-family: 'Switzer', system-ui, sans-serif;
+  font-size: 0.9375rem;
+  color: var(--op-text);
+  background: var(--op-surface);
+  border: 1px solid var(--op-border);
+  border-radius: 4px;
+  transition: border-color 0.15s, box-shadow 0.15s;
+}
+
+.field input:focus,
+.record-form input:focus {
+  outline: none;
+  border-color: var(--op-blue);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--op-blue) 20%, transparent);
+}
+
+.field input::placeholder {
+  color: var(--op-text-muted);
+}
+
+/* Inline validation error */
+.field-error {
+  font-family: 'Switzer', system-ui, sans-serif;
+  font-size: 0.8125rem;
+  color: var(--op-error);
+  padding: 4px 0;
+}
+
+/* Actions bar (Export buttons) */
+.actions {
+  display: flex;
+  gap: 12px;
+  margin-top: 8px;
+  flex-wrap: wrap;
+}
+
+.actions button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 10px 24px;
+  min-height: 44px;
+  font-family: 'Switzer', system-ui, sans-serif;
+  font-size: 0.875rem;
+  font-weight: 400;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+/* Primary action button: first button in .actions */
+.actions button:first-child {
+  background: var(--op-blue);
+  color: var(--op-text-on-blue);
+}
+
+.actions button:first-child:hover {
+  background: var(--op-blue-mid);
+}
+
+.actions button:first-child:active {
+  background: var(--op-blue-dark);
+}
+
+/* Secondary action button */
+.actions button:not(:first-child) {
+  background: transparent;
+  color: var(--op-blue);
+  border: 1px solid var(--op-blue);
+}
+
+.actions button:not(:first-child):hover {
+  background: var(--op-surface-2);
+}
+
+/* Focus ring for all buttons */
+.actions button:focus-visible {
+  outline: 2px solid var(--op-blue);
+  outline-offset: 2px;
+}
+
+/* -----------------------------------------------------------------------
+   Utility: monospace for IDs and code
+   ----------------------------------------------------------------------- */
+
+.mono,
+code,
+pre {
+  font-family: 'JetBrains Mono', 'Courier New', monospace;
+}

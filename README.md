@@ -60,6 +60,29 @@ flowchart TD
 - [ ] Identify relevant sources for enrichment.
 - [ ] Should we use a workflow manager (metaflow, temporal) to connect steps.
 
+## Web review UI
+
+Install the web extras and start the server:
+
+    uv sync --group web
+    uv run speciai serve            # or: uv run speciai serve --host 127.0.0.1 --port 8000
+
+Open http://127.0.0.1:8000, choose a specimen image, watch it go through
+OCR -> classify -> enrich, review the Darwin Core record beside the image, and
+export it as a Specify-WorkBench-ready CSV (or JSON).
+
+Workflow:
+
+1. **Upload** -- drag or choose a JPEG, PNG, or TIFF label photograph on the
+   start page.  The image is stored in a temporary job directory.
+2. **Progress** -- the browser streams live stage updates (OCR, classify,
+   enrich) via Server-Sent Events.  You can leave the page and return.
+3. **Review** -- a two-column layout shows the original image alongside the
+   pre-filled Darwin Core form.  Edit any field before exporting.
+4. **Export** -- "Export CSV" downloads a Specify-WorkBench-compatible file
+   whose column headers match `DarwinCoreRecord.column_headers()`.
+   "Export JSON" returns the same record as JSON.
+
 ## Installation
 
 Describe the installation instruction here.
