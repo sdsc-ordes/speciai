@@ -18,9 +18,7 @@ def test_enrich_record_accepts_classified_record(monkeypatch):
         authorship=["leg. R. Franken 1987"],
         verbatimCoordinates="46.5946, 6.3024",
     )
-    record = (
-        enrich_mod.enrich_record(doc=doc) if False else enrich_mod.enrich_record(doc)
-    )
+    record = enrich_mod.enrich_record(doc)
 
     assert isinstance(record, DarwinCoreRecord)
     assert record.verbatimCoordinates == "46.5946, 6.3024"
