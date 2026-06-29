@@ -668,6 +668,48 @@ a:focus {
   gap: 14px;
 }
 
+/* Re-derive: a small secondary control beside a re-derivable verbatim field;
+   pushed to the right of the label row. Re-runs that section's enrichment. */
+.rederive {
+  margin-left: auto;
+  padding: 4px 12px;
+  min-height: 32px;
+  font-family: "Switzer", system-ui, sans-serif;
+  font-size: 0.6875rem;
+  font-weight: 500;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--op-blue);
+  background: transparent;
+  border: 1px solid var(--op-blue);
+  border-radius: 4px;
+  cursor: pointer;
+  transition:
+    background 0.15s,
+    color 0.15s;
+}
+
+.rederive:hover {
+  background: var(--op-surface-2);
+}
+
+.rederive:focus-visible {
+  outline: 2px solid var(--op-blue);
+  outline-offset: 2px;
+}
+
+.rederive[disabled] {
+  color: var(--op-text-faint);
+  border-color: var(--op-border);
+  cursor: progress;
+}
+
+.rederive-msg {
+  flex-basis: 100%;
+  font-size: 0.75rem;
+  color: var(--op-error);
+}
+
 /* Inline validation error */
 .field-error {
   font-family: "Switzer", system-ui, sans-serif;

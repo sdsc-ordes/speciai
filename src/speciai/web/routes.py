@@ -11,6 +11,7 @@ from fastapi import APIRouter, HTTPException, Request, UploadFile
 from fastapi.responses import (
     FileResponse,
     HTMLResponse,
+    JSONResponse,
     RedirectResponse,
     Response,
 )
@@ -18,7 +19,9 @@ from fastapi.templating import Jinja2Templates
 from pydantic import ValidationError
 from sse_starlette.sse import EventSourceResponse
 
-from speciai.io import write_csv
+from speciai.enrich.geo import enrich_locations
+from speciai.enrich.species import enrich_species
+from speciai.io import format_cell, write_csv
 from speciai.pipeline import Stage
 from speciai.schema import FIELD_GROUPS, DarwinCoreRecord, json_schema_with_terms
 from speciai.web.jobs import JobStatus, run_job
@@ -119,6 +122,63 @@ async def events(request: Request, job_id: str) -> EventSourceResponse:
 _NUMERIC = {"number", "integer"}
 
 
+# Verbatim fields a reviewer can re-derive. Each entry pairs the verbatim source
+# field with the enrichment to run (``run``) and the fields it manages
+# (``fields``). Re-deriving replaces exactly ``fields`` from a fresh lookup,
+# blanking any the lookup no longer yields.
+#
+# NOTE: ``fields`` is each helper's OUTPUT set, deliberately NOT the group's full
+# interpreted set from ``schema.FIELD_GROUPS``. Do not derive it from there:
+# e.g. enrich_locations never yields geodeticDatum and enrich_species never
+# yields infraspecificEpithet/taxonId, so blanking those on re-derive would
+# clobber otherwise-valid values.
+DERIVATIONS: dict[str, dict] = {
+    "locality": {
+        "verbatim": "verbatimLocality",
+        "run": lambda text: enrich_locations([text]),
+        "fields": (
+            "locality",
+            "continent",
+            "country",
+            "countryCode",
+            "stateProvince",
+            "decimalLatitude",
+            "decimalLongitude",
+        ),
+    },
+    "identification": {
+        "verbatim": "verbatimIdentification",
+        "run": lambda text: enrich_species(text.split()),
+        "fields": (
+            "scientificName",
+            "scientificNameAuthorship",
+            "genus",
+            "specificEpithet",
+            "kingdom",
+            "phylum",
+            "order",
+            "family",
+            "subfamily",
+            "tribe",
+        ),
+    },
+}
+
+_DERIVE_SOURCE_BY_FIELD = {spec["verbatim"]: key for key, spec in DERIVATIONS.items()}
+
+
+def _run_derivation(source: str, verbatim: str) -> dict[str, str]:
+    """Run the enrichment a verbatim field feeds; return its managed fields.
+
+    Network-backed (Nominatim / GBIF), so call it off the event loop. Fields the
+    lookup no longer yields come back blank so the whole section is replaced.
+    """
+    spec = DERIVATIONS[source]
+    text = verbatim.strip()
+    derived = spec["run"](text) if text else {}
+    return {name: format_cell(derived.get(name)) for name in spec["fields"]}
+
+
 def _build_group_specs() -> list[dict]:
     """Static review-form groups (label + input type + role per field).
 
@@ -139,6 +199,7 @@ def _build_group_specs() -> list[dict]:
                     "label": prop.get("title", name),
                     "type": "number" if is_number else "text",
                     "role": role,
+                    "derive": _DERIVE_SOURCE_BY_FIELD.get(name),
                 }
             )
         groups.append({"key": key, "label": label, "members": specs})
@@ -250,3 +311,24 @@ async def export(request: Request, job_id: str, format: str = "csv") -> Response
         media_type="text/csv",
         headers={"Content-Disposition": 'attachment; filename="record.csv"'},
     )
+
+
+@router.post("/derive/{source}")
+async def derive(request: Request, source: str) -> JSONResponse:
+    """Re-run the enrichment a verbatim field feeds; return the refreshed fields.
+
+    Stateless: takes the verbatim value from the posted form and returns a
+    ``{"fields": {name: value}}`` map for the client to write back into the form.
+    """
+    spec = DERIVATIONS.get(source)
+    if spec is None:
+        raise HTTPException(status_code=404, detail=f"Unknown derivation: {source}")
+    form = await request.form()
+    verbatim = form.get(spec["verbatim"]) or ""
+    try:
+        fields = await asyncio.to_thread(_run_derivation, source, verbatim)
+    except Exception as exc:  # external lookup failure -> surface as a client error
+        return JSONResponse(
+            {"detail": f"Lookup failed ({type(exc).__name__})"}, status_code=502
+        )
+    return JSONResponse({"fields": fields})

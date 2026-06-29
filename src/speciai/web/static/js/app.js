@@ -54,3 +54,52 @@
     }
   }
 })()
+
+// review page: re-derive a section's inferred fields from its verbatim source.
+;(function () {
+  const buttons = document.querySelectorAll(".rederive")
+  if (!buttons.length) return
+
+  const setMessage = (btn, text) => {
+    const msg = btn.parentElement.querySelector(".rederive-msg")
+    if (msg) msg.textContent = text || ""
+  }
+
+  buttons.forEach((btn) => {
+    btn.addEventListener("click", async () => {
+      const source = btn.dataset.source
+      const fieldName = btn.dataset.field
+      const input = document.querySelector(`[name="${fieldName}"]`)
+      const value = input ? input.value : ""
+      const original = btn.textContent
+      btn.disabled = true
+      btn.textContent = "Deriving..."
+      setMessage(btn, "")
+      try {
+        const resp = await fetch(`/derive/${source}`, {
+          method: "POST",
+          headers: { "Content-Type": "application/x-www-form-urlencoded" },
+          body: new URLSearchParams({ [fieldName]: value }),
+        })
+        if (!resp.ok) {
+          const err = await resp.json().catch(() => ({}))
+          throw new Error(err.detail || "Lookup failed")
+        }
+        const data = await resp.json()
+        for (const [name, val] of Object.entries(data.fields)) {
+          const el = document.querySelector(`[name="${name}"]`)
+          if (!el) continue
+          el.value = val
+          // Surface a freshly-filled field hidden inside a collapsed group.
+          const details = el.closest("details.empties")
+          if (details && val !== "") details.open = true
+        }
+      } catch (e) {
+        setMessage(btn, e.message)
+      } finally {
+        btn.disabled = false
+        btn.textContent = original
+      }
+    })
+  })
+})()

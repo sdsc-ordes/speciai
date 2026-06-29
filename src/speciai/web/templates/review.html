@@ -2,27 +2,25 @@
 {% macro field(f) %}
 <label class="field field-{{ f.role }}">
   <span class="field-label">
-    {{ f.label }} {% if f.role == 'verbatim' %}<span class="badge"
-      >As read</span
-    >
-    {% elif f.role == 'interpreted' %}<span class="badge badge-info"
+    <span class="field-name">{{ f.label }}</span>
+    {% if f.role == 'verbatim' %}<span class="badge">As read</span>{% endif %}
+    {% if f.role == 'interpreted' %}<span class="badge badge-info"
       >Inferred</span
-    >{% endif %}
+    >{% endif %} {% if f.derive %}<button
+      type="button"
+      class="rederive"
+      data-source="{{ f.derive }}"
+      data-field="{{ f.name }}"
+    >
+      Re-derive</button
+    ><span class="rederive-msg"></span>{% endif %}
   </span>
-  <input
-    type="{{ f.type }}"
-    name="{{ f.name }}"
-    value="{{ f.value }}"
-    {%
-    if
-    f.type=""
-    ="number"
-    %}step="any"
-    {%
-    endif
-    %}
-  />
-  {% if f.error %}<span class="field-error">{{ f.error }}</span>{% endif %}
+  {% if f.type == 'number' %}
+  <input type="number" step="any" name="{{ f.name }}" value="{{ f.value }}" />
+  {% else %}
+  <input type="text" name="{{ f.name }}" value="{{ f.value }}" />
+  {% endif %} {% if f.error %}<span class="field-error">{{ f.error }}</span>{%
+  endif %}
 </label>
 {% endmacro %} {% block content %}
 <div class="section-label">

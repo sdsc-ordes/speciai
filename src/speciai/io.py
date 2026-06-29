@@ -34,8 +34,9 @@ def load_records(path: str | Path) -> list[DarwinCoreRecord]:
     return [DarwinCoreRecord.model_validate(record) for record in data]
 
 
-def _format_cell(value: object) -> str:
-    """Render a field value for CSV: ``None`` -> '', whole floats without '.0'."""
+def format_cell(value: object) -> str:
+    """Render a field as a string: `None` -> ''.
+    """
     if value is None:
         return ""
     if isinstance(value, float) and value.is_integer():
@@ -67,6 +68,6 @@ def _write_rows(records: Iterable[DarwinCoreRecord], handle: IO[str]) -> int:
     writer.writeheader()
     count = 0
     for record in records:
-        writer.writerow({k: _format_cell(v) for k, v in record.model_dump().items()})
+        writer.writerow({k: format_cell(v) for k, v in record.model_dump().items()})
         count += 1
     return count

@@ -133,6 +133,9 @@ def test_review_renders_record(monkeypatch, fake_ocr_result):
     assert 'name="scientificName"' in resp.text
     # The page wires the image panel to the job's image endpoint.
     assert f"/jobs/{job_id}/image" in resp.text
+    # Re-derivable verbatim sources expose a re-derive control.
+    assert 'data-source="locality"' in resp.text
+    assert 'data-source="identification"' in resp.text
 
 
 def test_image_served(monkeypatch, fake_ocr_result):
@@ -252,3 +255,83 @@ def test_sse_reconnect_after_completion(monkeypatch, fake_ocr_result):
     assert '"status":"done"' in second
     # The reconnect replays no stage events -- it only re-emits the terminal one.
     assert '"stage":"ocr"' not in second
+
+
+def test_derive_locality_replaces_section(monkeypatch):
+    monkeypatch.setattr(
+        routes_mod,
+        "enrich_locations",
+        lambda texts: {
+            "locality": "Mont Tendre",
+            "country": "Switzerland",
+            "countryCode": "CH",
+            "decimalLatitude": 46.5946,
+            "decimalLongitude": 6.3024,
+        },
+    )
+    app = create_app(engine=_FakeEngine())
+    with TestClient(app) as client:
+        resp = client.post(
+            "/derive/locality", data={"verbatimLocality": "Mont Tendre, Vaud"}
+        )
+    assert resp.status_code == HTTPStatus.OK
+    fields = resp.json()["fields"]
+    assert fields["country"] == "Switzerland"
+    assert fields["decimalLatitude"] == "46.5946"
+    # A field the lookup did not yield is blanked (the section is replaced).
+    assert fields["stateProvince"] == ""
+
+
+def test_derive_identification(monkeypatch):
+    monkeypatch.setattr(
+        routes_mod,
+        "enrich_species",
+        lambda names: {
+            "scientificName": "Papilio machaon",
+            "genus": "Papilio",
+            "specificEpithet": "machaon",
+        },
+    )
+    app = create_app(engine=_FakeEngine())
+    with TestClient(app) as client:
+        resp = client.post(
+            "/derive/identification",
+            data={"verbatimIdentification": "Papilio machaon"},
+        )
+    assert resp.status_code == HTTPStatus.OK
+    assert resp.json()["fields"]["scientificName"] == "Papilio machaon"
+
+
+def test_derive_unknown_source_404():
+    app = create_app(engine=_FakeEngine())
+    with TestClient(app) as client:
+        assert client.post("/derive/nope", data={}).status_code == HTTPStatus.NOT_FOUND
+
+
+def test_derive_empty_verbatim_skips_lookup(monkeypatch):
+    called = False
+
+    def spy(texts):
+        nonlocal called
+        called = True
+        return {}
+
+    monkeypatch.setattr(routes_mod, "enrich_locations", spy)
+    app = create_app(engine=_FakeEngine())
+    with TestClient(app) as client:
+        resp = client.post("/derive/locality", data={"verbatimLocality": "   "})
+    assert resp.status_code == HTTPStatus.OK
+    assert called is False
+    assert resp.json()["fields"]["country"] == ""
+
+
+def test_derive_lookup_failure_returns_502(monkeypatch):
+    def boom(texts):
+        raise RuntimeError("nominatim unreachable")
+
+    monkeypatch.setattr(routes_mod, "enrich_locations", boom)
+    app = create_app(engine=_FakeEngine())
+    with TestClient(app) as client:
+        resp = client.post("/derive/locality", data={"verbatimLocality": "Vaud"})
+    assert resp.status_code == HTTPStatus.BAD_GATEWAY
+    assert "Lookup failed" in resp.json()["detail"]
