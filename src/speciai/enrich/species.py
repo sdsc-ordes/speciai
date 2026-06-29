@@ -3,13 +3,13 @@ from itertools import product
 import requests
 
 TAXONOMIC_RANKS = {
-    "kingdom"
-    "phylum"
-    "order"
-    "family"
-    "subfamily"
-    "tribe"
-    "genus"
+    "kingdom",
+    "phylum",
+    "order",
+    "family",
+    "subfamily",
+    "tribe",
+    "genus",
 }
 
 @lru_cache(maxsize=1024)
