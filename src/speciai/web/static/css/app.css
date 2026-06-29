@@ -662,26 +662,33 @@ a:focus {
   margin-bottom: 14px;
 }
 
+/* Swap the summary label between collapsed (show) and expanded (hide) states. */
+.empties:not([open]) .empties-hide,
+.empties[open] .empties-show {
+  display: none;
+}
+
 .empties-body {
   display: flex;
   flex-direction: column;
   gap: 14px;
 }
 
-/* Re-derive: a small secondary control beside a re-derivable verbatim field;
-   pushed to the right of the label row. Re-runs that section's enrichment. */
+/* Re-derive: a small icon-only control beside a re-derivable verbatim field,
+   pushed to the right of the label row. A refresh glyph; the action ("Re-derive")
+   is exposed via the button's title (hover) and aria-label. Re-runs the
+   section's enrichment. */
 .rederive {
   margin-left: auto;
-  padding: 4px 12px;
-  min-height: 32px;
-  font-family: "Switzer", system-ui, sans-serif;
-  font-size: 0.6875rem;
-  font-weight: 500;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  padding: 0;
   color: var(--op-blue);
   background: transparent;
-  border: 1px solid var(--op-blue);
+  border: none;
   border-radius: 4px;
   cursor: pointer;
   transition:
@@ -689,8 +696,15 @@ a:focus {
     color 0.15s;
 }
 
+.rederive-icon {
+  display: block;
+  width: 16px;
+  height: 16px;
+}
+
 .rederive:hover {
   background: var(--op-surface-2);
+  color: var(--op-blue-dark);
 }
 
 .rederive:focus-visible {
@@ -700,8 +714,20 @@ a:focus {
 
 .rederive[disabled] {
   color: var(--op-text-faint);
-  border-color: var(--op-border);
   cursor: progress;
+}
+
+/* Spin the glyph while a lookup is in flight (motion-safe). */
+@media (prefers-reduced-motion: no-preference) {
+  .rederive.loading .rederive-icon {
+    animation: spin 0.8s linear infinite;
+  }
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 .rederive-msg {
