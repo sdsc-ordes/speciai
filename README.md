@@ -67,21 +67,20 @@ Install the web extras and start the server:
     uv sync --group web
     just run serve                  # or: uv run speciai serve --host 127.0.0.1 --port 8000
 
-Open http://127.0.0.1:8000, choose a specimen image, watch it go through
-OCR -> classify -> enrich, review the Darwin Core record beside the image, and
-export it as a Specify-WorkBench-ready CSV (or JSON).
+Open http://127.0.0.1:8000, choose a specimen image, watch it go through OCR ->
+classify -> enrich, review the Darwin Core record beside the image, and export
+it as a CSV or JSON.
 
 Workflow:
 
-1. **Upload** -- drag or choose a JPEG, PNG, or TIFF label photograph on the
-   start page.  The image is stored in a temporary job directory.
-2. **Progress** -- the browser streams live stage updates (OCR, classify,
-   enrich) via Server-Sent Events.  You can leave the page and return.
-3. **Review** -- a two-column layout shows the original image alongside the
-   pre-filled Darwin Core form.  Edit any field before exporting.
-4. **Export** -- "Export CSV" downloads a Specify-WorkBench-compatible file
-   whose column headers match `DarwinCoreRecord.column_headers()`.
-   "Export JSON" returns the same record as JSON.
+1. **Upload**: Drag or choose an image on the start page.
+2. **Progress**: The browser streams live stage updates (OCR, classify, enrich)
+   via Server-Sent Events. You can leave the page and return.
+3. **Review**: Shows the original image alongside the pre-filled Darwin Core
+   form. Edit any field before exporting.
+4. **Export**: "Export CSV" downloads a Specify-WorkBench-compatible file whose
+   column headers are DarwinCore terms. "Export JSON" returns the same record as
+   JSON.
 
 ## Installation
 
