@@ -6,14 +6,35 @@
     {% if f.role == 'verbatim' %}<span class="badge">As read</span>{% endif %}
     {% if f.role == 'interpreted' %}<span class="badge badge-info"
       >Inferred</span
-    >{% endif %} {% if f.derive %}<button
+    >{% endif %} {% if f.derive %}
+    <button
       type="button"
       class="rederive"
       data-source="{{ f.derive }}"
       data-field="{{ f.name }}"
+      title="Re-derive"
+      aria-label="Re-derive"
     >
-      Re-derive</button
-    ><span class="rederive-msg"></span>{% endif %}
+      <svg
+        class="rederive-icon"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        stroke-width="2"
+        stroke-linecap="round"
+        stroke-linejoin="round"
+        aria-hidden="true"
+        focusable="false"
+      >
+        <polyline points="23 4 23 10 17 10" />
+        <polyline points="1 20 1 14 7 14" />
+        <path
+          d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"
+        />
+      </svg>
+    </button>
+    <span class="rederive-msg"></span>
+    {% endif %}
   </span>
   {% if f.type == 'number' %}
   <input type="number" step="any" name="{{ f.name }}" value="{{ f.value }}" />
@@ -29,9 +50,7 @@
 </div>
 <h1>Review record</h1>
 <p class="lead">
-  Check what speciai read from the label against the image, correct anything
-  that looks off, then export the record. Each section leads with the text read
-  from the label; fields below it are inferred from external sources.
+  Check the record against the image, fix anything off, then export.
 </p>
 <div class="review">
   <figure class="image-panel">
@@ -57,8 +76,13 @@
       %}
       <details class="empties">
         <summary>
-          Show {{ group.hidden | length }} empty field{{ '' if group.hidden |
-          length == 1 else 's' }}
+          <span class="empties-show"
+            >Show {{ group.hidden | length }} empty field{{ '' if group.hidden |
+            length == 1 else 's' }}</span
+          ><span class="empties-hide"
+            >Hide {{ group.hidden | length }} empty field{{ '' if group.hidden |
+            length == 1 else 's' }}</span
+          >
         </summary>
         <div class="empties-body">
           {% for f in group.hidden %}{{ field(f) }}{% endfor %}

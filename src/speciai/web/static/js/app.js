@@ -71,9 +71,8 @@
       const fieldName = btn.dataset.field
       const input = document.querySelector(`[name="${fieldName}"]`)
       const value = input ? input.value : ""
-      const original = btn.textContent
       btn.disabled = true
-      btn.textContent = "Deriving..."
+      btn.classList.add("loading")
       setMessage(btn, "")
       try {
         const resp = await fetch(`/derive/${source}`, {
@@ -98,8 +97,20 @@
         setMessage(btn, e.message)
       } finally {
         btn.disabled = false
-        btn.textContent = original
+        btn.classList.remove("loading")
       }
     })
   })
+
+  // Enter inside a field re-derives that field (when derivable) rather than
+  // submitting the form; export stays explicit via the Export buttons.
+  const form = document.querySelector(".record-form")
+  if (form) {
+    form.addEventListener("keydown", (e) => {
+      if (e.key !== "Enter" || e.target.tagName !== "INPUT") return
+      e.preventDefault()
+      const btn = form.querySelector(`.rederive[data-field="${e.target.name}"]`)
+      if (btn) btn.click()
+    })
+  }
 })()
