@@ -75,12 +75,24 @@ async def run_job(job: Job, engine: OCREngine) -> None:
 
         loop.call_soon_threadsafe(deliver)
 
-    try:
-        record = await asyncio.to_thread(pipeline_run, job.image_path, engine, on_event)
-        job.record = record
-        job.status = JobStatus.DONE
-    except Exception as exc:  # boundary: turn any failure into job state
-        job.status = JobStatus.ERROR
-        job.error = f"{type(exc).__name__}: {exc}"
-    finally:
-        job.queue.put_nowait(None)
+    def run_in_thread() -> None:
+        # Set job state from the worker thread; the coroutine only reads `job`
+        # again after the thread joins, so plain attribute writes are safe.
+        try:
+            job.record = pipeline_run(job.image_path, engine, on_event)
+            job.status = JobStatus.DONE
+        except Exception as exc:  # boundary: turn any failure into job state
+            job.status = JobStatus.ERROR
+            job.error = f"{type(exc).__name__}: {exc}"
+        finally:
+            # Emit the sentinel from the worker thread, after every stage-event
+            # callback: queued via call_soon_threadsafe from the same thread, so
+            # the loop runs them FIFO -- stage events first, then None last.
+            loop.call_soon_threadsafe(job.queue.put_nowait, None)
+
+    await asyncio.to_thread(run_in_thread)
+    # The worker emitted every queue item (stage events, then the sentinel) via
+    # call_soon_threadsafe; awaiting the executor does not guarantee those loop
+    # callbacks have run. Yield once so the loop drains them, making the complete
+    # event stream observable to a reader that drains right after we return.
+    await asyncio.sleep(0)
