@@ -2,9 +2,9 @@ import argparse
 import json
 from pathlib import Path
 
-from speciai.ocr import OCREngine, OCRResult
+from speciai.classify import ClassifiedRecord
 from speciai.enrich import enrich_record
-from speciai.classify import run as classify_images
+from speciai.ocr import OCREngine
 
 
 def _cmd_ocr(args: argparse.Namespace) -> None:
@@ -16,7 +16,7 @@ def _cmd_ocr(args: argparse.Namespace) -> None:
 
 def _cmd_enrich(args: argparse.Namespace) -> None:
     for record_path in args.records:
-        record = json.load(open(record_path, "r"))
+        record = ClassifiedRecord.model_validate(json.load(open(record_path, "r")))
         enriched = enrich_record(record)
         print(enriched.model_dump_json(indent=2, exclude_none=True))
 
