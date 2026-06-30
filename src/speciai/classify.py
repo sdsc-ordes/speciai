@@ -1,15 +1,10 @@
 import json
 import re
-import sys
-import time
-from pathlib import Path
 
 from transformers import AutoProcessor, AutoModelForCausalLM
 
-from speciai.ocr import OCREngine
-from speciai.clean_ocr import clean
 
-labels = ["authorship", "location", "catalog_number", "latin_name", "sex", "coordinates"]
+LABELS = ["authorship", "location", "catalog_number", "scientific_name", "sex", "verbatimCoordinates"]
 MODEL_ID = "google/gemma-4-E2B-it"
 
 RULES = {
@@ -17,18 +12,8 @@ RULES = {
     "sex": re.compile(r"\b(?:fe)?male\b", re.IGNORECASE),
 }
 
-ENRICH_KEY_MAP = {
-    "location": "location",
-    "latin_name": "scientificName",
-    "authorship": "authorship",
-    "catalog_number": "catalogNumber",
-    "coordinates": "verbatimCoordinates",
-    "sex": "sex",
-}
-ENRICH_SCALAR_KEYS = {"verbatimCoordinates", "sex"}
 
-
-def ocr_text(result) -> str:
+def combine_ocr_labels(result) -> str:
     full_text = ""
     for label in result.labels:
         for block in label.blocks:
@@ -48,82 +33,55 @@ def apply_rules(full_text: str) -> tuple[dict, str]:
             full_text = pattern.sub(" ", full_text)
     return extracted, full_text
 
+def extract_json_from_llm_response(response: str) -> dict:
+    """Extract a JSON object from the LLM response string."""
+    # Find the first '{' and the last '}' in the response
+    start_index = response.find('{')
+    end_index = response.rfind('}') + 1
 
-def to_enrich_doc(classification: dict) -> dict:
-    """Remap our classification labels onto the keys enrich_record expects. The
-    required list-valued keys always appear (enrich indexes them directly); scalar
-    keys are joined to a string or None."""
-    doc = {}
-    for src, dst in ENRICH_KEY_MAP.items():
-        values = classification.get(src, [])
-        if not isinstance(values, list):
-            values = [values] if values else []
-        doc[dst] = (" ".join(values) or None) if dst in ENRICH_SCALAR_KEYS else values
-    return doc
+    if start_index == -1 or end_index == -1:
+        return {}
 
+    json_str = response[start_index:end_index]
 
-t0 = time.perf_counter()
-engine = OCREngine()
-t_ocr_load = time.perf_counter() - t0
+    try:
+        return json.loads(json_str)
+    except json.JSONDecodeError:
+        return {}
 
-t0 = time.perf_counter()
-processor = AutoProcessor.from_pretrained(MODEL_ID)
-model = AutoModelForCausalLM.from_pretrained(
-    MODEL_ID,
-    dtype="auto",
-    device_map="auto"
-)
-t_model_load = time.perf_counter() - t0
-
-print(json.dumps({"ocr_load_seconds": round(t_ocr_load, 2), "model_load_seconds": round(t_model_load, 2)}))
-
-for image_path in [Path(p) for p in sys.argv[1:]]:
-    t0 = time.perf_counter()
-    full_text = ocr_text(clean(engine.run(image_path)))
-    extracted, full_text = apply_rules(full_text)
-    t_ocr = time.perf_counter() - t0
-
-    llm_labels = [label for label in labels if label not in extracted]
+def classify_text(processor, model, full_text: str, target_labels: list[str]) -> dict:
+    """Classify the remaining text into target_labels. Returns an empty dict when the
+    model does not produce a valid JSON object."""
     messages = [
-        {"role": "system", "content": f"Classify into these categories: {', '.join(llm_labels)}. Return as json with labels as keys. User provides text. Return ONLY JSON whose keys are EXACTLY these. Each value is a list of strings. DONT invent, merge, or suffix keys. If field is absent, use empty list."},
-        {"role": "user", "content": f"{full_text}"}
+        {"role": "system", "content": f"Classify into these categories: {', '.join(target_labels)}. Return as json with labels as keys. User provides text. Return ONLY JSON whose keys are EXACTLY these. Each value is a list of strings, except authorships, which is a list of tuples author,date. DONT invent, merge, or suffix keys. If field is absent, use empty list."},
+        {"role": "user", "content": full_text},
     ]
-
-    t0 = time.perf_counter()
     text = processor.apply_chat_template(
-        messages,
-        tokenize=False,
-        add_generation_prompt=True,
-        enable_thinking=False
+        messages, tokenize=False, add_generation_prompt=True, enable_thinking=False
     )
     inputs = processor(text=text, return_tensors="pt").to(model.device)
     input_len = inputs["input_ids"].shape[-1]
-
     outputs = model.generate(**inputs, max_new_tokens=1024)
     response = processor.decode(outputs[0][input_len:], skip_special_tokens=False)
-    t_llm = time.perf_counter() - t0
 
-    classification = processor.parse_response(response)
-    if isinstance(classification, str):
-        try:
-            classification = json.loads(classification)
-        except json.JSONDecodeError:
-            classification = None
+    result = extract_json_from_llm_response(processor.parse_response(response)["content"])
+    return result if isinstance(result, dict) else {}
 
-    valid_json = isinstance(classification, dict)
-    if not valid_json:
-        classification = {}
+
+def run(ocr_results):
+    """Yield a classification record for each OCR result: rule-extract, then
+    classify the remainder with the LLM."""
+    processor = AutoProcessor.from_pretrained(MODEL_ID)
+    model = AutoModelForCausalLM.from_pretrained(MODEL_ID, dtype="auto", device_map="auto")
+
+
+    full_text = combine_ocr_labels(ocr_results)
+    extracted, full_text = apply_rules(full_text)
+    breakpoint()
+    target_labels = [label for label in LABELS if label not in extracted]
+    classification = classify_text(processor, model, full_text, target_labels)
     classification.update(extracted)
-    for label in labels:
-        classification.setdefault(label, [])
-
-    print(json.dumps({
-        "filename": image_path.name,
-        "file_size_mb": round(image_path.stat().st_size / 1_000_000, 2),
-        "ocr_seconds": round(t_ocr, 2),
-        "llm_seconds": round(t_llm, 2),
-        "valid_json": valid_json,
-        "classification": classification,
-        "enrich_input": to_enrich_doc(classification),
-        "total_seconds": round(t_ocr + t_llm, 2)
-    }))
+    return {
+        "metadata": {"filename": ocr_results.filename},
+        "data": classification,
+    }

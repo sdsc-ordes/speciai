@@ -12,7 +12,6 @@ from doctr.io import DocumentFile
 from doctr.models import ocr_predictor
 from pydantic import BaseModel
 
-
 class BBox(BaseModel):
     """Normalised bounding box (coordinates in [0, 1] relative to image dimensions)."""
 
@@ -51,10 +50,31 @@ class OCRResult(BaseModel):
             "labels": {"__all__": {"bbox": True, "blocks": {"__all__": {"bbox": True}}}}
         })
 
+    def clean(self):
+        """Return a copy of the OCR result with ruler labels removed."""
+        return OCRResult(
+            labels=[
+                label for label in self.labels
+                if not _is_ruler(label)
+            ],
+            filename=self.filename,
+        )
+
 
 class Axis(Enum):
     X = "x"
     Y = "y"
+
+def _is_ruler(label: Label, min_ruler_width: float = 0.8, min_digit_ratio: float = 0.5) -> bool:
+    """A ruler spans most of the image width and is either digit-dominated
+    (measurement marks) or low-confidence gibberish (tick marks)."""
+    width = label.bbox.x2 - label.bbox.x1
+    chars = [c for c in "".join(b.text for b in label.blocks) if not c.isspace()]
+    if not chars:
+        return True
+    digit_ratio = sum(c.isdigit() for c in chars) / len(chars)
+    return width > min_ruler_width and (digit_ratio > min_digit_ratio)
+
 
 
 def _geometry_to_bbox(geometry) -> BBox:
@@ -182,4 +202,4 @@ class OCREngine:
             ],
             filename=image_path.name
 
-        )
+        ).clean()
