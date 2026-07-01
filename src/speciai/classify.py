@@ -4,11 +4,11 @@ import re
 from transformers import AutoProcessor, AutoModelForCausalLM
 
 
-LABELS = ["authorship", "location", "catalog_number", "scientific_name", "sex", "verbatimCoordinates"]
+LABELS = ["authorship", "location", "catalogNumber", "scientificName", "sex", "verbatimCoordinates"]
 MODEL_ID = "google/gemma-4-E2B-it"
 
 RULES = {
-    "catalog_number": re.compile(r"ETHZ[-\s]*ENT(?:[-\s]*\d+)*", re.IGNORECASE),
+    "catalogNumber": re.compile(r"ETHZ[-\s]*ENT(?:[-\s]*\d+)*", re.IGNORECASE),
     "sex": re.compile(r"\b(?:fe)?male\b", re.IGNORECASE),
 }
 
