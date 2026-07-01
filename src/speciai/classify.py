@@ -29,26 +29,31 @@ def apply_rules(full_text: str) -> tuple[dict, str]:
     text so the LLM has less to look at. Returns (extracted, remaining_text)."""
     extracted = {}
     for field, pattern in RULES.items():
-        matches = list(dict.fromkeys(m.group(0).strip() for m in pattern.finditer(full_text)))
+        matches = list(set(pattern.findall(full_text)))
         if matches:
             extracted[field] = matches
             full_text = pattern.sub(" ", full_text)
     return extracted, full_text
 
 def extract_json_from_llm_response(response: str) -> dict:
-    """Extract a JSON object from the LLM response string."""
-    start_index = response.find('{')
-    end_index = response.rfind('}') + 1
+    """Extract the last complete JSON object from an LLM response string.
 
-    if start_index == -1 or end_index == -1:
-        return {}
-
-    json_str = response[start_index:end_index]
-
-    try:
-        return json.loads(json_str)
-    except json.JSONDecodeError:
-        return {}
+    LLMs may emit reasoning or prose around the answer; the final object is
+    taken as the answer. Returns an empty dict when none is parseable.
+    """
+    decoder = json.JSONDecoder()
+    result: dict = {}
+    start = response.find('{') #returns -1 if not found
+    while start != -1:
+        try:
+            obj, end = decoder.raw_decode(response, start)
+        except json.JSONDecodeError:
+            start = response.find('{', start + 1)
+            continue
+        if isinstance(obj, dict):
+            result = obj
+        start = response.find('{', end)
+    return result
 
 def classify_text(processor, model, full_text: str, target_labels: list[str]) -> dict:
     """Classify the remaining text into target_labels. Returns an empty dict when the
