@@ -78,7 +78,6 @@ def run(ocr_results):
 
     full_text = combine_ocr_labels(ocr_results)
     extracted, full_text = apply_rules(full_text)
-    breakpoint()
     target_labels = [label for label in LABELS if label not in extracted]
     classification = classify_text(processor, model, full_text, target_labels)
     classification.update(extracted)
