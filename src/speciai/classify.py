@@ -14,6 +14,8 @@ RULES = {
 
 
 def combine_ocr_labels(result) -> str:
+    """Combine all OCR'd labels into a single string,
+    with blocks separated by spaces"""
     full_text = ""
     for label in result.labels:
         for block in label.blocks:
@@ -35,7 +37,6 @@ def apply_rules(full_text: str) -> tuple[dict, str]:
 
 def extract_json_from_llm_response(response: str) -> dict:
     """Extract a JSON object from the LLM response string."""
-    # Find the first '{' and the last '}' in the response
     start_index = response.find('{')
     end_index = response.rfind('}') + 1
 
