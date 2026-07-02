@@ -15,7 +15,8 @@ build *args:
   cd "{{root_dir}}" && \
     {{engine}} build -f tools/images/Containerfile -t speciai:latest "$@" .
 
-# Run the web server via compose (`up`), pass e.g. `-d` to detach.
+# Run the web server via compose, rebuilding the image so dependency/source
+# changes always take effect. Pass e.g. `-d` to detach.
 serve *args:
   cd "{{root_dir}}" && \
-    {{engine}} compose up "$@"
+    {{engine}} compose up --build "$@"
