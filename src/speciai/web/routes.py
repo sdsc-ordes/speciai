@@ -19,8 +19,8 @@ from fastapi.templating import Jinja2Templates
 from pydantic import ValidationError
 from sse_starlette.sse import EventSourceResponse
 
-from speciai.enrich.geo import enrich_locations
-from speciai.enrich.species import enrich_species
+from speciai.enrich.geo import LOCATION_FIELDS, enrich_locations
+from speciai.enrich.species import SPECIES_FIELDS, enrich_species
 from speciai.io import format_cell, write_csv
 from speciai.pipeline import Stage
 from speciai.schema import FIELD_GROUPS, DarwinCoreRecord, json_schema_with_terms
@@ -61,7 +61,9 @@ async def create_job(request: Request, image: UploadFile) -> Response:
     job = request.app.state.jobs.create(image_path=dest / safe_name)
     job.image_path.write_bytes(data)
 
-    task = asyncio.create_task(run_job(job, request.app.state.engine))
+    task = asyncio.create_task(
+        run_job(job, request.app.state.engine, request.app.state.classifier)
+    )
     _BACKGROUND_TASKS.add(task)
     task.add_done_callback(_BACKGROUND_TASKS.discard)
     return RedirectResponse(url=f"/jobs/{job.id}", status_code=303)
@@ -123,46 +125,35 @@ _NUMERIC = {"number", "integer"}
 
 
 # Verbatim fields a reviewer can re-derive. Each entry pairs the verbatim source
-# field with the enrichment to run (``run``) and the fields it manages
-# (``fields``). Re-deriving replaces exactly ``fields`` from a fresh lookup,
-# blanking any the lookup no longer yields.
+# field with the enrichment to run (``run``) and that helper's full output set
+# (``output_fields``). Re-deriving replaces every output field except the verbatim
+# source from a fresh lookup, blanking any the lookup no longer yields.
 #
-# NOTE: ``fields`` is each helper's OUTPUT set, deliberately NOT the group's full
-# interpreted set from ``schema.FIELD_GROUPS``. Do not derive it from there:
-# e.g. enrich_locations never yields geodeticDatum and enrich_species never
-# yields infraspecificEpithet/taxonId, so blanking those on re-derive would
-# clobber otherwise-valid values.
+# ``output_fields`` is owned by the enrich module (geo.LOCATION_FIELDS /
+# species.SPECIES_FIELDS), NOT derived from ``schema.FIELD_GROUPS``: a group's
+# interpreted set is wider than what a helper emits (e.g. enrich_locations never
+# yields geodeticDatum), and blanking those on re-derive would clobber valid values.
 DERIVATIONS: dict[str, dict] = {
     "locality": {
         "verbatim": "verbatimLocality",
         "run": lambda text: enrich_locations([text]),
-        "fields": (
-            "locality",
-            "continent",
-            "country",
-            "countryCode",
-            "stateProvince",
-            "decimalLatitude",
-            "decimalLongitude",
-        ),
+        "output_fields": LOCATION_FIELDS,
     },
     "identification": {
         "verbatim": "verbatimIdentification",
         "run": lambda text: enrich_species(text.split()),
-        "fields": (
-            "scientificName",
-            "scientificNameAuthorship",
-            "genus",
-            "specificEpithet",
-            "kingdom",
-            "phylum",
-            "order",
-            "family",
-            "subfamily",
-            "tribe",
-        ),
+        "output_fields": SPECIES_FIELDS,
     },
 }
+
+# Guard the cross-module contract: every name a derivation references must be a
+# real schema field, or re-derive would write to a column the record cannot hold.
+for _src, _spec in DERIVATIONS.items():
+    _names = {_spec["verbatim"], *_spec["output_fields"]}
+    assert _names <= set(DarwinCoreRecord.model_fields), (
+        f"DERIVATIONS[{_src!r}] names a field absent from DarwinCoreRecord: "
+        f"{sorted(_names - set(DarwinCoreRecord.model_fields))}"
+    )
 
 _DERIVE_SOURCE_BY_FIELD = {spec["verbatim"]: key for key, spec in DERIVATIONS.items()}
 
@@ -170,13 +161,16 @@ _DERIVE_SOURCE_BY_FIELD = {spec["verbatim"]: key for key, spec in DERIVATIONS.it
 def _run_derivation(source: str, verbatim: str) -> dict[str, str]:
     """Run the enrichment a verbatim field feeds; return its managed fields.
 
-    Network-backed (Nominatim / GBIF), so call it off the event loop. Fields the
-    lookup no longer yields come back blank so the whole section is replaced.
+    Network-backed (Nominatim / GBIF), so call it off the event loop. The managed
+    set is the helper's output fields minus the verbatim source itself (never
+    blanked); fields the lookup no longer yields come back blank so the whole
+    section is replaced.
     """
     spec = DERIVATIONS[source]
     text = verbatim.strip()
     derived = spec["run"](text) if text else {}
-    return {name: format_cell(derived.get(name)) for name in spec["fields"]}
+    managed = (name for name in spec["output_fields"] if name != spec["verbatim"])
+    return {name: format_cell(derived.get(name)) for name in managed}
 
 
 def _build_group_specs() -> list[dict]:
