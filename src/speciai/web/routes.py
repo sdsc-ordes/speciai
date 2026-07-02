@@ -181,7 +181,7 @@ def _run_derivation(source: str, verbatim: str) -> dict[str, str]:
 def _build_group_specs() -> list[dict]:
     """Static review-form groups (label + input type + role per field).
 
-    Derived from the annotated schema and FIELD_GROUPS once at import; only a
+    Derived from the JSON schema and FIELD_GROUPS once at import; only a
     field's value varies per record, so the costly schema build never repeats.
     """
     props = json_schema_with_terms()["properties"]
