@@ -1,8 +1,8 @@
 """FastAPI application factory for the speciai review UI.
 
-The doctr OCR model is expensive to load, so it is constructed once in the
-lifespan and shared via ``app.state.engine``. Tests inject a fake engine to skip
-the model download.
+The OCR (doctr) and classification (LLM) models are both expensive to load, so
+they are constructed once in the lifespan and shared via ``app.state.engine`` /
+``app.state.classifier``. Tests inject fakes to skip the model downloads.
 """
 
 from __future__ import annotations
@@ -15,6 +15,7 @@ from fastapi import FastAPI
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 
+from speciai.classify import Classifier
 from speciai.ocr import OCREngine
 from speciai.web.jobs import JobRegistry
 from speciai.web.routes import router
@@ -24,12 +25,20 @@ _TEMPLATES_DIR = _WEB_DIR / "templates"
 _STATIC_DIR = _WEB_DIR / "static"
 
 
-def create_app(engine: OCREngine | None = None) -> FastAPI:
-    """Build the FastAPI app. Pass ``engine`` in tests to avoid loading doctr."""
+def create_app(
+    engine: OCREngine | None = None,
+    classifier: Classifier | None = None,
+) -> FastAPI:
+    """Build the FastAPI app.
+
+    Pass ``engine`` and ``classifier`` in tests to avoid loading the OCR / LLM
+    models; when omitted they are constructed once on startup.
+    """
 
     @asynccontextmanager
     async def lifespan(app: FastAPI):
         app.state.engine = engine if engine is not None else OCREngine()
+        app.state.classifier = classifier if classifier is not None else Classifier()
         app.state.jobs = JobRegistry()
         # Scratch dir for uploaded images, removed deterministically on shutdown.
         with tempfile.TemporaryDirectory(prefix="speciai-uploads-") as upload_dir:
