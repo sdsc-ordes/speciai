@@ -15,7 +15,7 @@ def test_enrich_record_accepts_classified_record(monkeypatch):
         location=["Mont Tendre, Vaud"],
         catalogNumber=["ETHZ", "0082619"],
         scientificName=["Papilio", "machaon"],
-        authorship=["leg. R. Franken 1987"],
+        authorship=[("R. Franken", "1987")],
         verbatimCoordinates="46.5946, 6.3024",
     )
     record = enrich_mod.enrich_record(doc)

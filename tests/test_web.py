@@ -8,6 +8,7 @@ from http import HTTPStatus
 import speciai.pipeline as pipeline_mod
 import speciai.web.routes as routes_mod
 from fastapi import FastAPI
+from speciai.classify import ClassifiedRecord
 from speciai.schema import DarwinCoreRecord
 from speciai.web.routes import MAX_UPLOAD_BYTES
 from starlette.testclient import TestClient
@@ -20,14 +21,23 @@ class _FakeEngine:
         raise AssertionError("engine should not run here")
 
 
+class _FakeClassifier:
+    """Stands in for the LLM classifier so tests never load a model."""
+
+    def run(self, ocr):
+        return ClassifiedRecord()
+
+
 def test_create_app_injects_engine_and_registry():
     fake_engine = _FakeEngine()
-    app = create_app(engine=fake_engine)
+    fake_classifier = _FakeClassifier()
+    app = create_app(engine=fake_engine, classifier=fake_classifier)
     assert isinstance(app, FastAPI)
     # State is populated lazily on startup; exercise via TestClient lifespan.
     with TestClient(app) as client:
-        # The injected engine must be the one used (not a freshly built OCREngine).
+        # The injected models must be the ones used (not freshly built ones).
         assert client.app.state.engine is fake_engine
+        assert client.app.state.classifier is fake_classifier
         assert client.app.state.jobs is not None
 
 
@@ -39,7 +49,7 @@ def _png_bytes() -> bytes:
 
 
 def test_start_page_renders():
-    app = create_app(engine=_FakeEngine())
+    app = create_app(engine=_FakeEngine(), classifier=_FakeClassifier())
     with TestClient(app) as client:
         resp = client.get("/")
     assert resp.status_code == HTTPStatus.OK
@@ -48,11 +58,11 @@ def test_start_page_renders():
 
 def test_post_jobs_creates_job_and_redirects(monkeypatch):
     # Stub the runner so no real pipeline/thread runs during the request test.
-    async def fake_run_job(job, engine):
+    async def fake_run_job(job, engine, classifier):
         return None
 
     monkeypatch.setattr(routes_mod, "run_job", fake_run_job)
-    app = create_app(engine=_FakeEngine())
+    app = create_app(engine=_FakeEngine(), classifier=_FakeClassifier())
     with TestClient(app) as client:
         resp = client.post(
             "/jobs",
@@ -64,7 +74,7 @@ def test_post_jobs_creates_job_and_redirects(monkeypatch):
 
 
 def test_post_jobs_rejects_non_image():
-    app = create_app(engine=_FakeEngine())
+    app = create_app(engine=_FakeEngine(), classifier=_FakeClassifier())
     with TestClient(app) as client:
         resp = client.post(
             "/jobs",
@@ -75,7 +85,7 @@ def test_post_jobs_rejects_non_image():
 
 
 def test_post_jobs_rejects_oversized_image():
-    app = create_app(engine=_FakeEngine())
+    app = create_app(engine=_FakeEngine(), classifier=_FakeClassifier())
     big = b"x" * (MAX_UPLOAD_BYTES + 1)
     with TestClient(app) as client:
         resp = client.post(
@@ -87,13 +97,13 @@ def test_post_jobs_rejects_oversized_image():
 
 
 def test_progress_page_404_for_unknown_job():
-    app = create_app(engine=_FakeEngine())
+    app = create_app(engine=_FakeEngine(), classifier=_FakeClassifier())
     with TestClient(app) as client:
         assert client.get("/jobs/nope").status_code == HTTPStatus.NOT_FOUND
 
 
 def test_sse_404_for_unknown_job():
-    app = create_app(engine=_FakeEngine())
+    app = create_app(engine=_FakeEngine(), classifier=_FakeClassifier())
     with TestClient(app) as client:
         assert client.get("/jobs/nope/events").status_code == HTTPStatus.NOT_FOUND
 
@@ -113,7 +123,9 @@ def _completed_job(monkeypatch, fake_ocr_result):
         def run(self, image_path):
             return fake_ocr_result
 
-    with TestClient(create_app(engine=_Engine())) as client:
+    with TestClient(
+        create_app(engine=_Engine(), classifier=_FakeClassifier())
+    ) as client:
         resp = client.post(
             "/jobs",
             files={"image": ("s.png", io.BytesIO(_png_bytes()), "image/png")},
@@ -146,7 +158,7 @@ def test_image_served(monkeypatch, fake_ocr_result):
 
 
 def test_image_404_for_unknown_job():
-    app = create_app(engine=_FakeEngine())
+    app = create_app(engine=_FakeEngine(), classifier=_FakeClassifier())
     with TestClient(app) as client:
         assert client.get("/jobs/nope/image").status_code == HTTPStatus.NOT_FOUND
 
@@ -186,7 +198,7 @@ def test_export_validation_error_rerenders(monkeypatch, fake_ocr_result):
 
 
 def test_export_404_for_unknown_job():
-    app = create_app(engine=_FakeEngine())
+    app = create_app(engine=_FakeEngine(), classifier=_FakeClassifier())
     with TestClient(app) as client:
         resp = client.post("/jobs/nope/export?format=csv", data={"scientificName": "X"})
     assert resp.status_code == HTTPStatus.NOT_FOUND
@@ -211,7 +223,7 @@ def test_sse_stream_emits_done(monkeypatch, fake_ocr_result):
         def run(self, image_path):
             return fake_ocr_result
 
-    app = create_app(engine=_Engine())
+    app = create_app(engine=_Engine(), classifier=_FakeClassifier())
     with TestClient(app) as client:
         resp = client.post(
             "/jobs",
@@ -241,7 +253,7 @@ def test_sse_reconnect_after_completion(monkeypatch, fake_ocr_result):
         def run(self, image_path):
             return fake_ocr_result
 
-    app = create_app(engine=_Engine())
+    app = create_app(engine=_Engine(), classifier=_FakeClassifier())
     with TestClient(app) as client:
         resp = client.post(
             "/jobs",
@@ -269,7 +281,7 @@ def test_derive_locality_replaces_section(monkeypatch):
             "decimalLongitude": 6.3024,
         },
     )
-    app = create_app(engine=_FakeEngine())
+    app = create_app(engine=_FakeEngine(), classifier=_FakeClassifier())
     with TestClient(app) as client:
         resp = client.post(
             "/derive/locality", data={"verbatimLocality": "Mont Tendre, Vaud"}
@@ -292,7 +304,7 @@ def test_derive_identification(monkeypatch):
             "specificEpithet": "machaon",
         },
     )
-    app = create_app(engine=_FakeEngine())
+    app = create_app(engine=_FakeEngine(), classifier=_FakeClassifier())
     with TestClient(app) as client:
         resp = client.post(
             "/derive/identification",
@@ -303,7 +315,7 @@ def test_derive_identification(monkeypatch):
 
 
 def test_derive_unknown_source_404():
-    app = create_app(engine=_FakeEngine())
+    app = create_app(engine=_FakeEngine(), classifier=_FakeClassifier())
     with TestClient(app) as client:
         assert client.post("/derive/nope", data={}).status_code == HTTPStatus.NOT_FOUND
 
@@ -317,7 +329,7 @@ def test_derive_empty_verbatim_skips_lookup(monkeypatch):
         return {}
 
     monkeypatch.setattr(routes_mod, "enrich_locations", spy)
-    app = create_app(engine=_FakeEngine())
+    app = create_app(engine=_FakeEngine(), classifier=_FakeClassifier())
     with TestClient(app) as client:
         resp = client.post("/derive/locality", data={"verbatimLocality": "   "})
     assert resp.status_code == HTTPStatus.OK
@@ -330,7 +342,7 @@ def test_derive_lookup_failure_returns_502(monkeypatch):
         raise RuntimeError("nominatim unreachable")
 
     monkeypatch.setattr(routes_mod, "enrich_locations", boom)
-    app = create_app(engine=_FakeEngine())
+    app = create_app(engine=_FakeEngine(), classifier=_FakeClassifier())
     with TestClient(app) as client:
         resp = client.post("/derive/locality", data={"verbatimLocality": "Vaud"})
     assert resp.status_code == HTTPStatus.BAD_GATEWAY

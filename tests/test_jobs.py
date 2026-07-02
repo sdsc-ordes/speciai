@@ -20,7 +20,7 @@ def test_create_and_get():
 
 @pytest.mark.asyncio
 async def test_run_job_success(monkeypatch):
-    def fake_run(image_path, engine, on_event):
+    def fake_run(image_path, engine, classifier, on_event):
         on_event(StageEvent(stage=Stage.OCR, status="started"))
         on_event(StageEvent(stage=Stage.ENRICH, status="finished"))
         return DarwinCoreRecord(scientificName="Papilio machaon")
@@ -28,7 +28,7 @@ async def test_run_job_success(monkeypatch):
     monkeypatch.setattr(jobs_mod, "pipeline_run", fake_run)
     reg = JobRegistry()
     job = reg.create(Path("/tmp/x.jpg"))
-    await run_job(job, engine=object())
+    await run_job(job, engine=object(), classifier=object())
 
     drained = []
     while True:
@@ -45,13 +45,13 @@ async def test_run_job_success(monkeypatch):
 
 @pytest.mark.asyncio
 async def test_run_job_error(monkeypatch):
-    def boom(image_path, engine, on_event):
+    def boom(image_path, engine, classifier, on_event):
         raise RuntimeError("ocr exploded")
 
     monkeypatch.setattr(jobs_mod, "pipeline_run", boom)
     reg = JobRegistry()
     job = reg.create(Path("/tmp/x.jpg"))
-    await run_job(job, engine=object())
+    await run_job(job, engine=object(), classifier=object())
     assert job.status is JobStatus.ERROR
     assert "ocr exploded" in job.error
     assert job.queue.get_nowait() is None  # terminal sentinel still emitted
