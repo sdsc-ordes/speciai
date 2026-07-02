@@ -40,7 +40,7 @@ flowchart TD
 | #   | Stage          | Tool / model                             | Output                                    |
 | --- | -------------- | ---------------------------------------- | ----------------------------------------- |
 | 1   | OCR            | `doctr`                                  | Hierarchical JSON preserving label layout |
-| 2   | Classification | Gemma 4 (primary) or fine-tuned BERT     | Darwin Core–keyed JSON                    |
+| 2   | Classification | Gemma 4-E2B-it                           | Darwin Core–keyed JSON                    |
 | 3   | Enrichment     | Nominatim, Wikidata, pygbif, `dateutils` | Normalised field values                   |
 | 4   | Human review   | Interactive pre-filled form              | Confirmed / edited record                 |
 
@@ -53,11 +53,11 @@ flowchart TD
 
 ## Open Questions
 
-- [ ] Validate `doctr` on real label images.
-- [ ] Benchmark Gemma 4 vs. fine-tuned BERT for zero-shot Darwin Core field
+- [x] Validate `doctr` on real label images.
+- [x] Benchmark Gemma 4 vs. fine-tuned BERT for zero-shot Darwin Core field
       classification.
 - [ ] Confirm output format requirements (json-ld or plain Darwin Core JSON)
-- [ ] Identify relevant sources for enrichment.
+- [x] Identify relevant sources for enrichment.
 - [ ] Should we use a workflow manager (metaflow, temporal) to connect steps.
 
 ## Installation
