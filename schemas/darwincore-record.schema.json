@@ -1,6 +1,6 @@
 {
   "additionalProperties": false,
-  "description": "A single specimen record, keyed by Darwin Core terms.\n\nSerialise a list of these to a flat CSV/XLSX (one row per specimen) for\nupload into Specify. Use :meth:`column_headers` to get the column order.\n\nFields are declared in review-form display order (the verbatim term leads\neach group); each carries a :class:`Dwc` annotation. The ``column`` value is\nits position in the canonical CSV order, which differs from this order.",
+  "description": "A single specimen record, keyed by Darwin Core terms.\n\nSerialise a list of these to a flat CSV/XLSX (one row per specimen) for\nupload into Specify; ``CANONICAL_COLUMN_ORDER`` gives the column order.\nFields are declared in review-form display order (verbatim term first).",
   "properties": {
     "verbatimIdentification": {
       "anyOf": [
