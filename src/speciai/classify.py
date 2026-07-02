@@ -1,77 +1,213 @@
 """Stage 2 of the speciai pipeline: bucket OCR text into semantic fields.
 
-This is a deliberately simple PLACEHOLDER. It assigns each detected text line to
-one of the buckets the enrichment stage consumes, using cheap surface heuristics,
-and leaves a bucket empty when unsure (the human fills gaps during review). The
-real classifier replaces ``classify``'s body only -- ``ClassifiedRecord`` and the
-signature are the stable contract with ``speciai.enrich``.
+An LLM (Gemma via ``transformers``) reads the OCR'd label text and sorts it into
+the buckets the enrichment stage consumes; a couple of high-precision regex rules
+(catalog number, sex) are applied first and stripped from the text so the model
+has less to reason about. The model is expensive to load, so :class:`Classifier`
+loads it once and is injected into the pipeline (mirroring ``OCREngine``); tests
+inject a fake with the same ``run(ocr) -> ClassifiedRecord`` shape.
+
+``ClassifiedRecord`` and ``Classifier.run``'s signature are the stable contract
+with ``speciai.enrich``; the model/prompt behind them may change freely.
 """
 
 from __future__ import annotations
 
+import json
 import re
 
 from pydantic import BaseModel
 
 from speciai.ocr import OCRResult
 
-# A line that is mostly digits, separators and the degree sign looks like coordinates.
-_COORD_RE = re.compile(r"^[\s\d.,;:/'\"NSEW\xb0+-]+$")
-_YEAR_RE = re.compile(r"\b(1[6-9]\d{2}|20\d{2})\b")
-# A scientific name is at minimum a binomial: "Genus species".
-_MIN_BINOMIAL_TOKENS = 2
+# Buckets the classifier fills. Names match what ``speciai.enrich`` consumes.
+LABELS = [
+    "authorship",
+    "location",
+    "catalogNumber",
+    "scientificName",
+    "sex",
+    "verbatimCoordinates",
+]
+MODEL_ID = "google/gemma-4-E2B-it"
+
+# High-precision fields extracted by regex (and removed from the LLM's input).
+RULES = {
+    "catalogNumber": re.compile(r"ETHZ[-\s]*ENT(?:[-\s]*\d+)*", re.IGNORECASE),
+    "sex": re.compile(r"\b(?:fe)?male\b", re.IGNORECASE),
+}
 
 
 class ClassifiedRecord(BaseModel):
     """Semantic buckets extracted from a specimen's labels.
 
     Field names match exactly what :func:`speciai.enrich.enrich_record` consumes.
+    ``authorship`` holds ``(author, date)`` pairs (the date as a verbatim string,
+    parsed downstream); every other multi-valued field is a list of strings.
     """
 
     location: list[str] = []
     catalogNumber: list[str] = []
     scientificName: list[str] = []
-    authorship: list[str] = []
+    authorship: list[tuple[str, str]] = []
+    sex: list[str] = []
     verbatimCoordinates: str | None = None
 
 
-def _looks_like_coordinates(text: str) -> bool:
-    return (
-        bool(text.strip())
-        and bool(_COORD_RE.match(text))
-        and any(c.isdigit() for c in text)
-    )
-
-
-def _looks_like_scientific_name(text: str) -> bool:
-    tokens = text.split()
-    return (
-        len(tokens) >= _MIN_BINOMIAL_TOKENS
-        and tokens[0][:1].isupper()
-        and tokens[1][:1].islower()
-    )
-
-
-def classify(ocr: OCRResult) -> ClassifiedRecord:
-    """Bucket every OCR line of every label into a :class:`ClassifiedRecord`.
-
-    Heuristics (first match wins per line): coordinate-like -> verbatimCoordinates;
-    contains a 4-digit year -> authorship; ``Genus species`` shape -> scientificName;
-    otherwise -> location. Catalog-number detection is left to the real classifier.
-    """
-    record = ClassifiedRecord()
+def combine_ocr_labels(ocr: OCRResult) -> str:
+    """Join every block of every label into one text blob, one label per line."""
+    lines = []
     for label in ocr.labels:
-        for block in label.blocks:
-            text = block.text.strip()
-            if not text:
-                continue
-            if _looks_like_coordinates(text):
-                if record.verbatimCoordinates is None:
-                    record.verbatimCoordinates = text
-            elif _YEAR_RE.search(text):
-                record.authorship.append(text)
-            elif _looks_like_scientific_name(text):
-                record.scientificName.append(text)
-            else:
-                record.location.append(text)
-    return record
+        lines.append(" ".join(block.text for block in label.blocks))
+    return "\n".join(lines)
+
+
+def apply_rules(full_text: str) -> tuple[dict[str, list[str]], str]:
+    """Extract regex-detectable fields and strip them from the text.
+
+    Returns ``(extracted, remaining_text)``. Matches are de-duplicated and sorted
+    so the output is a pure function of the input (no set-iteration nondeterminism).
+    """
+    extracted: dict[str, list[str]] = {}
+    for field, pattern in RULES.items():
+        matches = sorted(set(pattern.findall(full_text)))
+        if matches:
+            extracted[field] = matches
+            full_text = pattern.sub(" ", full_text)
+    return extracted, full_text
+
+
+def extract_json_from_llm_response(response: str) -> dict:
+    """Extract the last complete JSON object from an LLM response string.
+
+    LLMs may emit reasoning or prose around the answer; the final object is taken
+    as the answer. Returns an empty dict when none is parseable.
+    """
+    decoder = json.JSONDecoder()
+    result: dict = {}
+    start = response.find("{")  # returns -1 if not found
+    while start != -1:
+        try:
+            obj, end = decoder.raw_decode(response, start)
+        except json.JSONDecodeError:
+            start = response.find("{", start + 1)
+            continue
+        if isinstance(obj, dict):
+            result = obj
+        start = response.find("{", end)
+    return result
+
+
+def _as_str_list(value: object) -> list[str]:
+    """Coerce an LLM value into a list of non-empty strings."""
+    if value is None:
+        return []
+    if isinstance(value, str):
+        return [value] if value else []
+    if isinstance(value, (list, tuple)):
+        return [str(item) for item in value if str(item)]
+    return [str(value)]
+
+
+def _as_pairs(value: object) -> list[tuple[str, str]]:
+    """Coerce an LLM ``authorship`` value into ``(author, date)`` pairs.
+
+    Each item is expected to be a ``[author, date]`` pair; a bare string is kept
+    as an author with an empty date (undated -> dropped by the enrichment).
+    """
+    pairs: list[tuple[str, str]] = []
+    for item in value or []:
+        if isinstance(item, (list, tuple)):
+            parts = [str(part) for part in item]
+            author = parts[0] if parts else ""
+            date = parts[1] if len(parts) > 1 else ""
+            pairs.append((author, date))
+        elif isinstance(item, str):
+            pairs.append((item, ""))
+    return pairs
+
+
+def _first_str(value: object) -> str | None:
+    """Coerce an LLM value into a single string (first non-empty), or ``None``."""
+    items = _as_str_list(value)
+    return items[0] if items else None
+
+
+def _to_classified_record(raw: dict) -> ClassifiedRecord:
+    """Map the classifier's raw ``{label: value}`` dict onto a ``ClassifiedRecord``.
+
+    Bridges the LLM's shape (lists everywhere, authorship as pairs) to the typed
+    contract: ``verbatimCoordinates`` collapses to a single string, ``authorship``
+    becomes ``(author, date)`` pairs, and the rest become string lists.
+    """
+    return ClassifiedRecord(
+        location=_as_str_list(raw.get("location")),
+        catalogNumber=_as_str_list(raw.get("catalogNumber")),
+        scientificName=_as_str_list(raw.get("scientificName")),
+        authorship=_as_pairs(raw.get("authorship")),
+        sex=_as_str_list(raw.get("sex")),
+        verbatimCoordinates=_first_str(raw.get("verbatimCoordinates")),
+    )
+
+
+def classify_text(processor, model, full_text: str, target_labels: list[str]) -> dict:
+    """Classify ``full_text`` into ``target_labels`` with the LLM.
+
+    Returns an empty dict when the model does not produce a valid JSON object.
+    """
+    labels = ", ".join(target_labels)
+    messages = [
+        {
+            "role": "system",
+            "content": (
+                f"Classify into these categories: {labels}. Return as json with "
+                "labels as keys. User provides text. Return ONLY JSON whose keys "
+                "are EXACTLY these. Each value is a list of strings, except "
+                "authorships, which is a list of tuples author,date. DONT invent, "
+                "merge, or suffix keys. If field is absent, use empty list."
+            ),
+        },
+        {"role": "user", "content": full_text},
+    ]
+    text = processor.apply_chat_template(
+        messages, tokenize=False, add_generation_prompt=True, enable_thinking=False
+    )
+    inputs = processor(text=text, return_tensors="pt").to(model.device)
+    input_len = inputs["input_ids"].shape[-1]
+    outputs = model.generate(**inputs, max_new_tokens=1024)
+    response = processor.decode(outputs[0][input_len:], skip_special_tokens=False)
+
+    parsed = processor.parse_response(response)["content"]
+    result = extract_json_from_llm_response(parsed)
+    return result if isinstance(result, dict) else {}
+
+
+class Classifier:
+    """Loads the classification LLM once and buckets OCR text into records.
+
+    The model download/load is expensive, so build this once and reuse it (the
+    web app constructs it in its lifespan and injects it, like ``OCREngine``).
+    """
+
+    def __init__(self, model_id: str = MODEL_ID):
+        # Imported lazily: transformers/torch are heavy and only the real model
+        # path needs them, so importing this module (for ClassifiedRecord, used by
+        # enrich/CLI/tests) stays cheap and model-free.
+        from transformers import (  # noqa: PLC0415
+            AutoModelForCausalLM,
+            AutoProcessor,
+        )
+
+        self._processor = AutoProcessor.from_pretrained(model_id)
+        self._model = AutoModelForCausalLM.from_pretrained(
+            model_id, dtype="auto", device_map="auto"
+        )
+
+    def run(self, ocr: OCRResult) -> ClassifiedRecord:
+        """Bucket one OCR result: rule-extract, LLM-classify the rest, assemble."""
+        full_text = combine_ocr_labels(ocr)
+        extracted, remaining = apply_rules(full_text)
+        target_labels = [label for label in LABELS if label not in extracted]
+        raw = classify_text(self._processor, self._model, remaining, target_labels)
+        raw.update(extracted)
+        return _to_classified_record(raw)
