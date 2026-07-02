@@ -6,6 +6,21 @@
   const fill = document.getElementById("progress-fill")
   const pct = document.getElementById("progress-pct")
 
+  // Client-side stage timing: record when each stage's "started" event arrives
+  // and render the elapsed wall-clock time when its "finished" event lands. The
+  // pipeline is synchronous, so browser-observed duration tracks the real stage
+  // time (bar the negligible SSE hop).
+  const startedAt = {}
+  const formatDuration = (ms) => {
+    if (ms < 1000) return Math.round(ms) + " ms"
+    const s = ms / 1000
+    return (s < 10 ? s.toFixed(1) : Math.round(s)) + " s"
+  }
+  const showTime = (li, text) => {
+    const el = li.querySelector(".step-time")
+    if (el) el.textContent = text
+  }
+
   // Pipeline stages drive the bar; the synthetic "done" step is not one of them.
   const total =
     [...document.querySelectorAll(".step[data-stage]")].filter(
@@ -45,10 +60,14 @@
     if (!li) return
     if (msg.status === "started") {
       li.classList.add("running")
+      startedAt[msg.stage] = performance.now()
       setProgress((finished + 0.5) / total) // mid-step motion
     } else if (msg.status === "finished") {
       li.classList.remove("running")
       li.classList.add("done")
+      const start = startedAt[msg.stage]
+      if (start !== undefined)
+        showTime(li, formatDuration(performance.now() - start))
       finished += 1
       setProgress(finished / total)
     }

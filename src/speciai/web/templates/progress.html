@@ -17,7 +17,10 @@ content %}
 </div>
 <ul class="stepper" id="stepper">
   {% for stage in stages %}
-  <li data-stage="{{ stage }}" class="step">{{ stage }}</li>
+  <li data-stage="{{ stage }}" class="step">
+    <span class="step-label">{{ stage }}</span>
+    <span class="step-time" aria-hidden="true"></span>
+  </li>
   {% endfor %}
 </ul>
 <noscript><meta http-equiv="refresh" content="3" /></noscript>

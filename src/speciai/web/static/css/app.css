@@ -430,6 +430,14 @@ a:focus {
   border-bottom: none;
 }
 
+/* Per-step execution time, pushed to the right edge of the row */
+.step-time {
+  margin-left: auto;
+  font-variant-numeric: tabular-nums;
+  font-size: 0.8125rem;
+  color: var(--op-text-muted);
+}
+
 /* Step state indicator dot */
 .step::before {
   content: "";
