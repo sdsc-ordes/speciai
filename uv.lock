@@ -2490,6 +2490,7 @@ dependencies = [
 [package.dev-dependencies]
 dev = [
     { name = "notebook" },
+    { name = "pytest" },
     { name = "pytest-asyncio" },
 ]
 web = [
@@ -2515,6 +2516,7 @@ requires-dist = [
 [package.metadata.requires-dev]
 dev = [
     { name = "notebook", specifier = ">=7.3.2" },
+    { name = "pytest", specifier = ">=8.4.2" },
     { name = "pytest-asyncio", specifier = ">=0.23" },
 ]
 web = [
