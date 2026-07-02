@@ -9,16 +9,10 @@ RUN apt-get update \
 WORKDIR /app
 ENV UV_COMPILE_BYTECODE=1 UV_LINK_MODE=copy
 
-# Install locked dependencies first so source edits do not invalidate this layer.
-COPY pyproject.toml uv.lock ./
-RUN --mount=type=cache,target=/root/.cache/uv \
-    uv sync --locked --no-dev --group web --no-install-project
-
 # README.md is referenced by pyproject and required to build the package.
-COPY README.md ./
+COPY README.md pyproject.toml uv.lock ./
 COPY src ./src
-RUN --mount=type=cache,target=/root/.cache/uv \
-    uv sync --locked --no-dev --group web
+RUN uv sync --locked --no-dev
 
 EXPOSE 8000
 # 0.0.0.0: the CLI default 127.0.0.1 is unreachable from outside the container.
