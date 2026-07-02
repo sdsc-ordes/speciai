@@ -21,6 +21,19 @@
     if (el) el.textContent = text
   }
 
+  // Only one stage runs at a time, so a single interval handle is enough.
+  let tickHandle = null
+  const stopTicking = () => {
+    if (tickHandle !== null) clearInterval(tickHandle)
+    tickHandle = null
+  }
+  const startTicking = (stage, li) => {
+    stopTicking()
+    tickHandle = setInterval(() => {
+      showTime(li, formatDuration(performance.now() - startedAt[stage]))
+    }, 100)
+  }
+
   // Pipeline stages drive the bar; the synthetic "done" step is not one of them.
   const total =
     [...document.querySelectorAll(".step[data-stage]")].filter(
@@ -37,10 +50,30 @@
     if (pct) pct.textContent = value + "%"
   }
 
+  // Recover state across a reload/reconnect: the server hands over each
+  // stage's done/running/pending status and elapsed time as of render time,
+  // since a fresh SSE connection never replays events an earlier connection
+  // already drained from the job's queue.
+  for (const s of window.SPECIAI_STEPS || []) {
+    const li = step(s.stage)
+    if (!li) continue
+    if (s.status === "done") {
+      li.classList.add("done")
+      showTime(li, formatDuration(s.elapsed_ms))
+      finished += 1
+    } else if (s.status === "running") {
+      li.classList.add("running")
+      startedAt[s.stage] = performance.now() - s.elapsed_ms
+      startTicking(s.stage, li)
+    }
+  }
+  setProgress((finished + (tickHandle !== null ? 0.5 : 0)) / total)
+
   const src = new EventSource(`/jobs/${jobId}/events`)
   src.onmessage = (e) => {
     const msg = JSON.parse(e.data)
     if (msg.status === "done") {
+      stopTicking()
       src.close()
       setProgress(1, true)
       const last = step("done")
@@ -49,6 +82,7 @@
       return
     }
     if (msg.status === "error") {
+      stopTicking()
       src.close()
       const active = document.querySelector(".step.running")
       if (active) active.classList.replace("running", "error")
@@ -61,8 +95,10 @@
     if (msg.status === "started") {
       li.classList.add("running")
       startedAt[msg.stage] = performance.now()
+      startTicking(msg.stage, li)
       setProgress((finished + 0.5) / total) // mid-step motion
     } else if (msg.status === "finished") {
+      stopTicking()
       li.classList.remove("running")
       li.classList.add("done")
       const start = startedAt[msg.stage]

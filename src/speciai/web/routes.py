@@ -5,6 +5,7 @@ from __future__ import annotations
 import asyncio
 import io
 import json
+import time
 from pathlib import Path
 
 from fastapi import APIRouter, HTTPException, Request, UploadFile
@@ -74,6 +75,36 @@ async def create_job(request: Request, image: UploadFile) -> Response:
     return RedirectResponse(url=f"/jobs/{job.id}", status_code=303)
 
 
+def _step_states(job) -> list[dict]:
+    """Per-stage done/running/pending state and elapsed ms, for page reload.
+
+    A reconnecting SSE client never replays events an earlier connection
+    already drained from the job's queue, so the initial page render is the
+    only place a reloading browser can recover which stages already
+    finished, which is running, and for how long.
+    """
+    now = time.monotonic()
+    states = []
+    for stage in Stage:
+        started = job.stage_started_at.get(stage)
+        finished = job.stage_finished_at.get(stage)
+        if finished is not None:
+            elapsed_ms = round((finished - started) * 1000)
+            states.append(
+                {"stage": stage.value, "status": "done", "elapsed_ms": elapsed_ms}
+            )
+        elif started is not None:
+            elapsed_ms = round((now - started) * 1000)
+            states.append(
+                {"stage": stage.value, "status": "running", "elapsed_ms": elapsed_ms}
+            )
+        else:
+            states.append(
+                {"stage": stage.value, "status": "pending", "elapsed_ms": None}
+            )
+    return states
+
+
 @router.get("/jobs/{job_id}", response_class=HTMLResponse)
 async def progress(request: Request, job_id: str) -> HTMLResponse:
     """Render the progress page for the given job, or 404 if unknown."""
@@ -83,8 +114,11 @@ async def progress(request: Request, job_id: str) -> HTMLResponse:
     # Every pipeline stage plus a synthetic terminal step shown until the
     # client receives the "done" event and redirects to the review page.
     stages = [stage.value for stage in Stage] + ["done"]
+    steps_json = json.dumps(_step_states(job), separators=(",", ":"))
     return _templates(request).TemplateResponse(
-        request, "progress.html", {"job_id": job_id, "stages": stages}
+        request,
+        "progress.html",
+        {"job_id": job_id, "stages": stages, "steps_json": steps_json},
     )
 
 

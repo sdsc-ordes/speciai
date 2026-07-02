@@ -26,5 +26,6 @@ content %}
 <noscript><meta http-equiv="refresh" content="3" /></noscript>
 <script>
   window.SPECIAI_JOB_ID = "{{ job_id }}"
+  window.SPECIAI_STEPS = {{ steps_json | safe }}
 </script>
 {% endblock %}

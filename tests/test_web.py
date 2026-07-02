@@ -4,12 +4,16 @@ import base64
 import contextlib
 import io
 from http import HTTPStatus
+from pathlib import Path
+from types import SimpleNamespace
 
 import speciai.pipeline as pipeline_mod
 import speciai.web.routes as routes_mod
 from fakes import FakeClassifier, StaticEngine
 from fastapi import FastAPI
+from speciai.pipeline import Stage
 from speciai.schema import DarwinCoreRecord
+from speciai.web.jobs import JobStatus
 from speciai.web.routes import MAX_UPLOAD_BYTES
 from starlette.testclient import TestClient
 
@@ -93,6 +97,27 @@ def test_progress_page_404_for_unknown_job():
     app = create_app(engine=_FakeEngine(), classifier=FakeClassifier())
     with TestClient(app) as client:
         assert client.get("/jobs/nope").status_code == HTTPStatus.NOT_FOUND
+
+
+def test_progress_page_reflects_step_state(monkeypatch):
+    app = create_app(engine=_FakeEngine(), classifier=FakeClassifier())
+    with TestClient(app) as client:
+        job = client.app.state.jobs.create(Path("/tmp/x.jpg"))
+        job.status = JobStatus.RUNNING
+        job.stage = Stage.CLASSIFY
+        job.stage_started_at = {Stage.OCR: 100.0, Stage.CLASSIFY: 105.0}
+        job.stage_finished_at = {Stage.OCR: 104.0}
+        # Patch the name binding in routes_mod, not the real `time` module --
+        # the TestClient's underlying event loop calls time.monotonic() too.
+        monkeypatch.setattr(
+            routes_mod, "time", SimpleNamespace(monotonic=lambda: 107.5)
+        )
+        resp = client.get(f"/jobs/{job.id}")
+
+    assert resp.status_code == HTTPStatus.OK
+    assert '"stage":"ocr","status":"done","elapsed_ms":4000' in resp.text
+    assert '"stage":"classify","status":"running","elapsed_ms":2500' in resp.text
+    assert '"stage":"enrich","status":"pending","elapsed_ms":null' in resp.text
 
 
 def test_sse_404_for_unknown_job():

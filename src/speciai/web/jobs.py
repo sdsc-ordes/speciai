@@ -10,6 +10,7 @@ back onto the event loop with ``call_soon_threadsafe``.
 from __future__ import annotations
 
 import asyncio
+import time
 import uuid
 from dataclasses import dataclass, field
 from enum import Enum
@@ -35,6 +36,8 @@ class Job:
     image_path: Path
     status: JobStatus = JobStatus.PENDING
     stage: Stage | None = None
+    stage_started_at: dict[Stage, float] = field(default_factory=dict)
+    stage_finished_at: dict[Stage, float] = field(default_factory=dict)
     record: DarwinCoreRecord | None = None
     error: str | None = None
     queue: "asyncio.Queue[StageEvent | None]" = field(default_factory=asyncio.Queue)
@@ -72,6 +75,10 @@ async def run_job(job: Job, engine: OCREngine, classifier: Classifier) -> None:
         # update and the queue push both happen on the event-loop side.
         def deliver() -> None:
             job.stage = event.stage
+            if event.status == "started":
+                job.stage_started_at[event.stage] = time.monotonic()
+            else:
+                job.stage_finished_at[event.stage] = time.monotonic()
             job.queue.put_nowait(event)
 
         loop.call_soon_threadsafe(deliver)
