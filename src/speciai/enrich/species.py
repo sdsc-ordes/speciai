@@ -12,6 +12,29 @@ TAXONOMIC_RANKS = {
     "genus",
 }
 
+# Every Darwin Core field ``enrich_species`` can emit. This is the module's output
+# contract: callers (e.g. the review form's re-derive) key off it, and a test
+# asserts the helper never emits a key outside this set. ``verbatimIdentification``
+# is the echoed input; the rest are interpreted. Ranks are listed in a fixed
+# (high-to-low) order so the output is deterministic; the assert keeps that list in
+# sync with ``TAXONOMIC_RANKS``.
+SPECIES_FIELDS: tuple[str, ...] = (
+    "verbatimIdentification",
+    "scientificName",
+    "scientificNameAuthorship",
+    "specificEpithet",
+    "kingdom",
+    "phylum",
+    "order",
+    "family",
+    "subfamily",
+    "tribe",
+    "genus",
+)
+assert TAXONOMIC_RANKS <= set(SPECIES_FIELDS), (
+    "SPECIES_FIELDS is missing a rank declared in TAXONOMIC_RANKS"
+)
+
 @lru_cache(maxsize=1024)
 def fetch_gbif_species(genus: str, species: str) -> dict[str, str] | None:
     """Retrieves species taxonomic data in a dictionary of darwin core terms.

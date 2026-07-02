@@ -16,15 +16,60 @@ Conventions:
   * ``verbatim*`` terms hold the raw OCR / classified value; their interpreted
     counterparts hold the enriched / normalised value. The enrichment stage must
     never overwrite a verbatim term.
-  * Field *definition order* below is the canonical column order for the CSV.
+  * Each field carries its own :class:`Dwc` metadata (review group, role, and
+    canonical CSV column position). ``FIELD_GROUPS`` (review form) and
+    ``CANONICAL_COLUMN_ORDER`` (CSV) are *derived* from it, so the field set is
+    declared exactly once. Field *definition order* is the review/display order;
+    the canonical CSV order is the separate, externally-dictated ``column`` index.
 """
 
 from __future__ import annotations
 
 import re
+from dataclasses import dataclass
 from enum import Enum
+from typing import Annotated
 
 from pydantic import BaseModel, ConfigDict, Field
+
+
+class Role(str, Enum):
+    """A field's part in the as-read -> inferred review treatment.
+
+    ``verbatim`` terms are read straight off the label; ``interpreted`` terms are
+    derived/normalised from a verbatim source; ``plain`` terms are neither.
+    """
+
+    VERBATIM = "verbatim"
+    INTERPRETED = "interpreted"
+    PLAIN = "plain"
+
+
+@dataclass(frozen=True)
+class Dwc:
+    """Review/export metadata attached to a single ``DarwinCoreRecord`` field.
+
+    Annotated onto each field so the model is the only place the field set is
+    declared; the review groups and the CSV column order are derived from it.
+    """
+
+    group: str  # review-form group key; must be a key in GROUP_LABELS
+    role: Role
+    column: int  # 0-based position in the canonical CSV column order
+
+
+# Review-form groups in display order, mapping each group key to its label. The
+# fields belonging to a group (and their within-group order) come from the model
+# field definitions below, so this map only carries the labels and group order.
+GROUP_LABELS: dict[str, str] = {
+    "identification": "Identification",
+    "event": "Collection event",
+    "locality": "Locality",
+    "coordinates": "Coordinates",
+    "organism": "Organism",
+    "record": "Catalog & record",
+    "provenance": "Provenance",
+}
 
 
 class DarwinCoreRecord(BaseModel):
@@ -32,120 +77,190 @@ class DarwinCoreRecord(BaseModel):
 
     Serialise a list of these to a flat CSV/XLSX (one row per specimen) for
     upload into Specify. Use :meth:`column_headers` to get the column order.
+
+    Fields are declared in review-form display order (the verbatim term leads
+    each group); each carries a :class:`Dwc` annotation. The ``column`` value is
+    its position in the canonical CSV order, which differs from this order.
     """
 
     model_config = ConfigDict(extra="forbid")
 
-    catalogNumber: str | None = Field(
-        default=None,
-        description="Unique identifier for the specimen within the collection.",
-    )
-    collectionCode: str | None = Field(
-        default=None, description="Name/code identifying the collection."
-    )
-    otherCatalogNumbers: str | None = Field(
-        default=None, description="Additional catalog numbers (e.g. previous IDs)."
-    )
-    preparations: str | None = Field(
-        default=None,
-        description="Preparation/preservation method (e.g. 'pinned', 'in ethanol').",
-    )
-    scientificName: str | None = Field(
-        default=None, description="Full scientific name, with authorship if known."
-    )
-    scientificNameAuthorship: str | None = Field(
-        default=None, description="Authorship of the scientific name."
-    )
-    kingdom: str | None = Field(default=None, description="Taxonomic kingdom.")
-    phylum: str | None = Field(default=None, description="Taxonomic phylum.")
-    order: str | None = Field(default=None, description="Taxonomic order.")
-    family: str | None = Field(default=None, description="Taxonomic family.")
-    subfamily: str | None = Field(default=None, description="Taxonomic subfamily.")
-    tribe: str | None = Field(default=None, description="Taxonomic tribe.")
-    genus: str | None = Field(default=None, description="Taxonomic genus.")
-    specificEpithet: str | None = Field(default=None, description="Species epithet.")
-    infraspecificEpithet: str | None = Field(
-        default=None, description="Subspecies / infraspecific epithet."
-    )
-    taxonId: str | None = Field(
-        default=None,
-        description="Taxon identifier (DwC canonical term is 'taxonID'; kept as 'taxonId' to match target headers).",
-    )
-    identifiedBy: str | None = Field(
-        default=None, description="Person(s) who determined the taxon."
-    )
-    dateIdentified: str | None = Field(
-        default=None, description="Date of determination (ISO 8601; may be partial)."
-    )
-    verbatimIdentification: str | None = Field(
+    # --- Identification ---
+    verbatimIdentification: Annotated[
+        str | None, Dwc(group="identification", role=Role.VERBATIM, column=39)
+    ] = Field(
         default=None,
         description="Verbatim taxonomic identification as written on the label.",
     )
+    scientificName: Annotated[
+        str | None, Dwc(group="identification", role=Role.INTERPRETED, column=32)
+    ] = Field(
+        default=None, description="Full scientific name, with authorship if known."
+    )
+    scientificNameAuthorship: Annotated[
+        str | None, Dwc(group="identification", role=Role.INTERPRETED, column=17)
+    ] = Field(default=None, description="Authorship of the scientific name.")
+    genus: Annotated[
+        str | None, Dwc(group="identification", role=Role.INTERPRETED, column=10)
+    ] = Field(default=None, description="Taxonomic genus.")
+    specificEpithet: Annotated[
+        str | None, Dwc(group="identification", role=Role.INTERPRETED, column=19)
+    ] = Field(default=None, description="Species epithet.")
+    infraspecificEpithet: Annotated[
+        str | None, Dwc(group="identification", role=Role.INTERPRETED, column=27)
+    ] = Field(default=None, description="Subspecies / infraspecific epithet.")
+    kingdom: Annotated[
+        str | None, Dwc(group="identification", role=Role.INTERPRETED, column=1)
+    ] = Field(default=None, description="Taxonomic kingdom.")
+    phylum: Annotated[
+        str | None, Dwc(group="identification", role=Role.INTERPRETED, column=2)
+    ] = Field(default=None, description="Taxonomic phylum.")
+    order: Annotated[
+        str | None, Dwc(group="identification", role=Role.INTERPRETED, column=15)
+    ] = Field(default=None, description="Taxonomic order.")
+    family: Annotated[
+        str | None, Dwc(group="identification", role=Role.INTERPRETED, column=9)
+    ] = Field(default=None, description="Taxonomic family.")
+    subfamily: Annotated[
+        str | None, Dwc(group="identification", role=Role.INTERPRETED, column=21)
+    ] = Field(default=None, description="Taxonomic subfamily.")
+    tribe: Annotated[
+        str | None, Dwc(group="identification", role=Role.INTERPRETED, column=22)
+    ] = Field(default=None, description="Taxonomic tribe.")
+    taxonId: Annotated[
+        str | None, Dwc(group="identification", role=Role.INTERPRETED, column=26)
+    ] = Field(
+        default=None,
+        description=(
+            "Taxon identifier (DwC canonical term is 'taxonID'; kept as 'taxonId' "
+            "to match target headers)."
+        ),
+    )
+    identifiedBy: Annotated[
+        str | None, Dwc(group="identification", role=Role.PLAIN, column=12)
+    ] = Field(default=None, description="Person(s) who determined the taxon.")
+    dateIdentified: Annotated[
+        str | None, Dwc(group="identification", role=Role.PLAIN, column=33)
+    ] = Field(
+        default=None, description="Date of determination (ISO 8601; may be partial)."
+    )
+    typeStatus: Annotated[
+        str | None, Dwc(group="identification", role=Role.PLAIN, column=23)
+    ] = Field(default=None, description="Nomenclatural type status (e.g. 'holotype').")
 
-    typeStatus: str | None = Field(
-        default=None, description="Nomenclatural type status (e.g. 'holotype')."
+    # --- Collection event ---
+    verbatimEventDate: Annotated[
+        str | None, Dwc(group="event", role=Role.VERBATIM, column=24)
+    ] = Field(
+        default=None, description="Verbatim collection date as written on the label."
     )
-    recordedBy: str | None = Field(
-        default=None, description="Collector(s) of the specimen."
-    )
-    sex: str | None = Field(default=None, description="Sex of the specimen.")
-    lifeStage: str | None = Field(
-        default=None, description="Life stage (e.g. 'adult', 'larva')."
-    )
-    organismRemarks: str | None = Field(
-        default=None, description="Free-text remarks about the organism."
-    )
-
-    eventDate: str | None = Field(
+    eventDate: Annotated[
+        str | None, Dwc(group="event", role=Role.INTERPRETED, column=34)
+    ] = Field(
         default=None,
         description="Interpreted collection date (ISO 8601; may be partial or a range).",
     )
-    verbatimEventDate: str | None = Field(
-        default=None, description="Verbatim collection date as written on the label."
-    )
-    continent: str | None = Field(default=None, description="Continent.")
-    country: str | None = Field(default=None, description="Country name.")
-    countryCode: str | None = Field(
-        default=None, description="ISO 3166-1 alpha-2 country code."
-    )
-    stateProvince: str | None = Field(
-        default=None, description="State / province / canton."
-    )
-    locality: str | None = Field(
-        default=None, description="Interpreted, normalised locality description."
-    )
-    verbatimLocality: str | None = Field(
-        default=None, description="Verbatim locality as written on the label."
-    )
-    decimalLatitude: float | None = Field(
-        default=None, ge=-90, le=90, description="Latitude in decimal degrees."
-    )
-    decimalLongitude: float | None = Field(
-        default=None, ge=-180, le=180, description="Longitude in decimal degrees."
-    )
-    geodeticDatum: str | None = Field(
-        default=None, description="Geodetic datum of the coordinates (e.g. 'WGS84')."
-    )
-    coordinateUncertaintyInMeters: float | None = Field(
-        default=None, ge=0, description="Horizontal coordinate uncertainty, in metres."
-    )
-    verbatimCoordinates: str | None = Field(
-        default=None, description="Verbatim coordinates as written on the label."
-    )
-    verbatimCoordinateSystem: str | None = Field(
+    recordedBy: Annotated[
+        str | None, Dwc(group="event", role=Role.PLAIN, column=16)
+    ] = Field(default=None, description="Collector(s) of the specimen.")
+
+    # --- Locality ---
+    verbatimLocality: Annotated[
+        str | None, Dwc(group="locality", role=Role.VERBATIM, column=25)
+    ] = Field(default=None, description="Verbatim locality as written on the label.")
+    locality: Annotated[
+        str | None, Dwc(group="locality", role=Role.INTERPRETED, column=14)
+    ] = Field(default=None, description="Interpreted, normalised locality description.")
+    continent: Annotated[
+        str | None, Dwc(group="locality", role=Role.INTERPRETED, column=31)
+    ] = Field(default=None, description="Continent.")
+    country: Annotated[
+        str | None, Dwc(group="locality", role=Role.INTERPRETED, column=5)
+    ] = Field(default=None, description="Country name.")
+    countryCode: Annotated[
+        str | None, Dwc(group="locality", role=Role.INTERPRETED, column=6)
+    ] = Field(default=None, description="ISO 3166-1 alpha-2 country code.")
+    stateProvince: Annotated[
+        str | None, Dwc(group="locality", role=Role.INTERPRETED, column=20)
+    ] = Field(default=None, description="State / province / canton.")
+
+    # --- Coordinates ---
+    verbatimCoordinates: Annotated[
+        str | None, Dwc(group="coordinates", role=Role.VERBATIM, column=36)
+    ] = Field(default=None, description="Verbatim coordinates as written on the label.")
+    verbatimCoordinateSystem: Annotated[
+        str | None, Dwc(group="coordinates", role=Role.VERBATIM, column=40)
+    ] = Field(
         default=None, description="Coordinate system of the verbatim coordinates."
     )
-    associatedMedia: str | None = Field(
+    decimalLatitude: Annotated[
+        float | None, Dwc(group="coordinates", role=Role.INTERPRETED, column=7)
+    ] = Field(default=None, ge=-90, le=90, description="Latitude in decimal degrees.")
+    decimalLongitude: Annotated[
+        float | None, Dwc(group="coordinates", role=Role.INTERPRETED, column=8)
+    ] = Field(
+        default=None, ge=-180, le=180, description="Longitude in decimal degrees."
+    )
+    geodeticDatum: Annotated[
+        str | None, Dwc(group="coordinates", role=Role.INTERPRETED, column=11)
+    ] = Field(
+        default=None, description="Geodetic datum of the coordinates (e.g. 'WGS84')."
+    )
+    coordinateUncertaintyInMeters: Annotated[
+        float | None, Dwc(group="coordinates", role=Role.INTERPRETED, column=4)
+    ] = Field(
+        default=None, ge=0, description="Horizontal coordinate uncertainty, in metres."
+    )
+
+    # --- Organism ---
+    sex: Annotated[str | None, Dwc(group="organism", role=Role.PLAIN, column=18)] = (
+        Field(default=None, description="Sex of the specimen.")
+    )
+    lifeStage: Annotated[
+        str | None, Dwc(group="organism", role=Role.PLAIN, column=13)
+    ] = Field(default=None, description="Life stage (e.g. 'adult', 'larva').")
+    organismRemarks: Annotated[
+        str | None, Dwc(group="organism", role=Role.PLAIN, column=28)
+    ] = Field(default=None, description="Free-text remarks about the organism.")
+
+    # --- Catalog & record ---
+    catalogNumber: Annotated[
+        str | None, Dwc(group="record", role=Role.PLAIN, column=0)
+    ] = Field(
         default=None,
-        description="URI(s) of associated media (e.g. label/specimen images).",
+        description="Unique identifier for the specimen within the collection.",
     )
-    associatedReferences: str | None = Field(
-        default=None, description="Associated literature references."
+    collectionCode: Annotated[
+        str | None, Dwc(group="record", role=Role.PLAIN, column=3)
+    ] = Field(default=None, description="Name/code identifying the collection.")
+    otherCatalogNumbers: Annotated[
+        str | None, Dwc(group="record", role=Role.PLAIN, column=35)
+    ] = Field(
+        default=None, description="Additional catalog numbers (e.g. previous IDs)."
     )
-    verbatimLabel: str | None = Field(
+    preparations: Annotated[
+        str | None, Dwc(group="record", role=Role.PLAIN, column=30)
+    ] = Field(
+        default=None,
+        description="Preparation/preservation method (e.g. 'pinned', 'in ethanol').",
+    )
+
+    # --- Provenance ---
+    verbatimLabel: Annotated[
+        str | None, Dwc(group="provenance", role=Role.VERBATIM, column=29)
+    ] = Field(
         default=None,
         description="Full verbatim transcription of the specimen label text.",
     )
+    associatedMedia: Annotated[
+        str | None, Dwc(group="provenance", role=Role.PLAIN, column=37)
+    ] = Field(
+        default=None,
+        description="URI(s) of associated media (e.g. label/specimen images).",
+    )
+    associatedReferences: Annotated[
+        str | None, Dwc(group="provenance", role=Role.PLAIN, column=38)
+    ] = Field(default=None, description="Associated literature references.")
 
     @classmethod
     def column_headers(cls) -> list[str]:
@@ -153,154 +268,57 @@ class DarwinCoreRecord(BaseModel):
         return list(CANONICAL_COLUMN_ORDER)
 
 
-CANONICAL_COLUMN_ORDER: tuple[str, ...] = (
-    "catalogNumber",
-    "kingdom",
-    "phylum",
-    "collectionCode",
-    "coordinateUncertaintyInMeters",
-    "country",
-    "countryCode",
-    "decimalLatitude",
-    "decimalLongitude",
-    "family",
-    "genus",
-    "geodeticDatum",
-    "identifiedBy",
-    "lifeStage",
-    "locality",
-    "order",
-    "recordedBy",
-    "scientificNameAuthorship",
-    "sex",
-    "specificEpithet",
-    "stateProvince",
-    "subfamily",
-    "tribe",
-    "typeStatus",
-    "verbatimEventDate",
-    "verbatimLocality",
-    "taxonId",
-    "infraspecificEpithet",
-    "organismRemarks",
-    "verbatimLabel",
-    "preparations",
-    "continent",
-    "scientificName",
-    "dateIdentified",
-    "eventDate",
-    "otherCatalogNumbers",
-    "verbatimCoordinates",
-    "associatedMedia",
-    "associatedReferences",
-    "verbatimIdentification",
-    "verbatimCoordinateSystem",
-)
+def _field_meta() -> dict[str, Dwc]:
+    """Extract the ``Dwc`` annotation of every field, validating the invariants.
 
-assert set(CANONICAL_COLUMN_ORDER) == set(DarwinCoreRecord.model_fields), (
-    "CANONICAL_COLUMN_ORDER is out of sync with DarwinCoreRecord fields"
+    Self-checks that make the model a trustworthy single source: each field has
+    exactly one ``Dwc``, every group is known, and the column indices form a
+    contiguous 0..N-1 permutation (no duplicate or missing CSV positions).
+    """
+    meta: dict[str, Dwc] = {}
+    for name, info in DarwinCoreRecord.model_fields.items():
+        found = [m for m in info.metadata if isinstance(m, Dwc)]
+        if len(found) != 1:
+            raise AssertionError(
+                f"{name} must carry exactly one Dwc annotation, found {len(found)}"
+            )
+        meta[name] = found[0]
+
+    unknown = {m.group for m in meta.values()} - set(GROUP_LABELS)
+    if unknown:
+        raise AssertionError(f"Dwc.group values not in GROUP_LABELS: {sorted(unknown)}")
+
+    columns = sorted(m.column for m in meta.values())
+    if columns != list(range(len(meta))):
+        raise AssertionError(
+            f"Dwc.column values must be a contiguous 0..N-1 permutation; got {columns}"
+        )
+    return meta
+
+
+_FIELD_META = _field_meta()
+
+
+# Canonical CSV column order: fields sorted by their declared ``column`` index.
+CANONICAL_COLUMN_ORDER: tuple[str, ...] = tuple(
+    sorted(_FIELD_META, key=lambda name: _FIELD_META[name].column)
 )
 
 
-# Review-form field groups. Every specimen field belongs to exactly one group,
-# in display order. Within a group the verbatim (as-read) term leads, then the
-# interpreted/inferred terms derived from it, then plain related terms. The role
-# ("verbatim" | "interpreted" | "plain") drives the review form's grouping and
-# its as-read / inferred treatment; it does not affect CSV/XLSX export.
-FIELD_GROUPS: tuple[tuple[str, str, tuple[tuple[str, str], ...]], ...] = (
+# Review-form groups, derived from the model: each group in GROUP_LABELS order,
+# its members in field-definition order, carrying the role as its string value.
+# Shape: tuple[(group_key, label, tuple[(field_name, role_value), ...]), ...].
+FIELD_GROUPS: tuple[tuple[str, str, tuple[tuple[str, str], ...]], ...] = tuple(
     (
-        "identification",
-        "Identification",
-        (
-            ("verbatimIdentification", "verbatim"),
-            ("scientificName", "interpreted"),
-            ("scientificNameAuthorship", "interpreted"),
-            ("genus", "interpreted"),
-            ("specificEpithet", "interpreted"),
-            ("infraspecificEpithet", "interpreted"),
-            ("kingdom", "interpreted"),
-            ("phylum", "interpreted"),
-            ("order", "interpreted"),
-            ("family", "interpreted"),
-            ("subfamily", "interpreted"),
-            ("tribe", "interpreted"),
-            ("taxonId", "interpreted"),
-            ("identifiedBy", "plain"),
-            ("dateIdentified", "plain"),
-            ("typeStatus", "plain"),
+        key,
+        label,
+        tuple(
+            (name, _FIELD_META[name].role.value)
+            for name in DarwinCoreRecord.model_fields
+            if _FIELD_META[name].group == key
         ),
-    ),
-    (
-        "event",
-        "Collection event",
-        (
-            ("verbatimEventDate", "verbatim"),
-            ("eventDate", "interpreted"),
-            ("recordedBy", "plain"),
-        ),
-    ),
-    (
-        "locality",
-        "Locality",
-        (
-            ("verbatimLocality", "verbatim"),
-            ("locality", "interpreted"),
-            ("continent", "interpreted"),
-            ("country", "interpreted"),
-            ("countryCode", "interpreted"),
-            ("stateProvince", "interpreted"),
-        ),
-    ),
-    (
-        "coordinates",
-        "Coordinates",
-        (
-            ("verbatimCoordinates", "verbatim"),
-            ("verbatimCoordinateSystem", "verbatim"),
-            ("decimalLatitude", "interpreted"),
-            ("decimalLongitude", "interpreted"),
-            ("geodeticDatum", "interpreted"),
-            ("coordinateUncertaintyInMeters", "interpreted"),
-        ),
-    ),
-    (
-        "organism",
-        "Organism",
-        (
-            ("sex", "plain"),
-            ("lifeStage", "plain"),
-            ("organismRemarks", "plain"),
-        ),
-    ),
-    (
-        "record",
-        "Catalog & record",
-        (
-            ("catalogNumber", "plain"),
-            ("collectionCode", "plain"),
-            ("otherCatalogNumbers", "plain"),
-            ("preparations", "plain"),
-        ),
-    ),
-    (
-        "provenance",
-        "Provenance",
-        (
-            ("verbatimLabel", "verbatim"),
-            ("associatedMedia", "plain"),
-            ("associatedReferences", "plain"),
-        ),
-    ),
-)
-
-_GROUPED_FIELDS = [
-    name for _key, _label, members in FIELD_GROUPS for name, _role in members
-]
-assert set(_GROUPED_FIELDS) == set(DarwinCoreRecord.model_fields), (
-    "FIELD_GROUPS is out of sync with DarwinCoreRecord fields"
-)
-assert len(_GROUPED_FIELDS) == len(DarwinCoreRecord.model_fields), (
-    "FIELD_GROUPS lists a field more than once"
+    )
+    for key, label in GROUP_LABELS.items()
 )
 
 
