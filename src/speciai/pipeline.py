@@ -9,11 +9,10 @@ the error.
 from __future__ import annotations
 
 from collections.abc import Callable
+from dataclasses import dataclass
 from enum import Enum
 from pathlib import Path
 from typing import Literal
-
-from pydantic import BaseModel
 
 from speciai.classify import Classifier
 from speciai.enrich import enrich_record
@@ -27,7 +26,10 @@ class Stage(str, Enum):
     ENRICH = "enrich"
 
 
-class StageEvent(BaseModel):
+@dataclass(frozen=True)
+class StageEvent:
+    """Internal progress message; never crosses a validation boundary."""
+
     stage: Stage
     status: Literal["started", "finished"]
 

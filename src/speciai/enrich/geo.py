@@ -18,8 +18,7 @@ OSM_ADDRESS_MAPPINGS: dict[OSMField, DWCTerm] = {
 # Every Darwin Core field ``enrich_locations`` can emit. This is the module's
 # output contract: callers (e.g. the review form's re-derive) key off it, and a
 # test asserts the helper never emits a key outside this set. ``verbatimLocality``
-# is the echoed input; the rest are interpreted/inferred. Ordered to match the
-# locality + coordinates groups in ``schema.FIELD_GROUPS`` for deterministic output.
+# is the echoed input; the rest are interpreted/inferred.
 LOCATION_FIELDS: tuple[DWCTerm, ...] = (
     'verbatimLocality',
     'locality',

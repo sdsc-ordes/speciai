@@ -52,14 +52,19 @@ async def create_job(request: Request, image: UploadFile) -> Response:
         return Response(
             "Please choose an image file (JPEG, PNG or TIFF).", status_code=400
         )
-    data = await image.read()
-    if len(data) > MAX_UPLOAD_BYTES:
-        return Response("Image is too large (max 25 MB).", status_code=400)
+    # Read in chunks so an oversized body is rejected as soon as it passes the
+    # cap, instead of being buffered whole first.
+    data = bytearray()
+    while chunk := await image.read(64 * 1024):
+        data.extend(chunk)
+        if len(data) > MAX_UPLOAD_BYTES:
+            return Response("Image is too large (max 25 MB).", status_code=400)
 
     safe_name = Path(image.filename or "upload").name
     dest = request.app.state.upload_dir
     job = request.app.state.jobs.create(image_path=dest / safe_name)
-    job.image_path.write_bytes(data)
+    # Off the event loop: a multi-MB synchronous write would stall open SSE streams.
+    await asyncio.to_thread(job.image_path.write_bytes, bytes(data))
 
     task = asyncio.create_task(
         run_job(job, request.app.state.engine, request.app.state.classifier)
@@ -75,9 +80,9 @@ async def progress(request: Request, job_id: str) -> HTMLResponse:
     job = request.app.state.jobs.get(job_id)
     if job is None:
         raise HTTPException(status_code=404, detail="Unknown job")
-    # Three pipeline stages plus a synthetic terminal step shown until the
+    # Every pipeline stage plus a synthetic terminal step shown until the
     # client receives the "done" event and redirects to the review page.
-    stages = [Stage.OCR.value, Stage.CLASSIFY.value, Stage.ENRICH.value, "done"]
+    stages = [stage.value for stage in Stage] + ["done"]
     return _templates(request).TemplateResponse(
         request, "progress.html", {"job_id": job_id, "stages": stages}
     )

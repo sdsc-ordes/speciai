@@ -3,22 +3,9 @@
 from pathlib import Path
 
 import speciai.pipeline as pipeline_mod
-from speciai.classify import ClassifiedRecord
+from fakes import FakeClassifier, StaticEngine
 from speciai.pipeline import Stage, StageEvent, run
 from speciai.schema import DarwinCoreRecord
-
-
-class _FakeEngine:
-    def __init__(self, result):
-        self._result = result
-
-    def run(self, image_path):
-        return self._result
-
-
-class _FakeClassifier:
-    def run(self, ocr):
-        return ClassifiedRecord()
 
 
 def test_run_emits_ordered_events_and_record(monkeypatch, fake_ocr_result):
@@ -31,8 +18,8 @@ def test_run_emits_ordered_events_and_record(monkeypatch, fake_ocr_result):
     events: list[StageEvent] = []
     record = run(
         Path("specimen.jpg"),
-        _FakeEngine(fake_ocr_result),
-        _FakeClassifier(),
+        StaticEngine(fake_ocr_result),
+        FakeClassifier(),
         events.append,
     )
 

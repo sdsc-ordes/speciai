@@ -7,8 +7,8 @@ from http import HTTPStatus
 
 import speciai.pipeline as pipeline_mod
 import speciai.web.routes as routes_mod
+from fakes import FakeClassifier, StaticEngine
 from fastapi import FastAPI
-from speciai.classify import ClassifiedRecord
 from speciai.schema import DarwinCoreRecord
 from speciai.web.routes import MAX_UPLOAD_BYTES
 from starlette.testclient import TestClient
@@ -21,16 +21,9 @@ class _FakeEngine:
         raise AssertionError("engine should not run here")
 
 
-class _FakeClassifier:
-    """Stands in for the LLM classifier so tests never load a model."""
-
-    def run(self, ocr):
-        return ClassifiedRecord()
-
-
 def test_create_app_injects_engine_and_registry():
     fake_engine = _FakeEngine()
-    fake_classifier = _FakeClassifier()
+    fake_classifier = FakeClassifier()
     app = create_app(engine=fake_engine, classifier=fake_classifier)
     assert isinstance(app, FastAPI)
     # State is populated lazily on startup; exercise via TestClient lifespan.
@@ -49,7 +42,7 @@ def _png_bytes() -> bytes:
 
 
 def test_start_page_renders():
-    app = create_app(engine=_FakeEngine(), classifier=_FakeClassifier())
+    app = create_app(engine=_FakeEngine(), classifier=FakeClassifier())
     with TestClient(app) as client:
         resp = client.get("/")
     assert resp.status_code == HTTPStatus.OK
@@ -62,7 +55,7 @@ def test_post_jobs_creates_job_and_redirects(monkeypatch):
         return None
 
     monkeypatch.setattr(routes_mod, "run_job", fake_run_job)
-    app = create_app(engine=_FakeEngine(), classifier=_FakeClassifier())
+    app = create_app(engine=_FakeEngine(), classifier=FakeClassifier())
     with TestClient(app) as client:
         resp = client.post(
             "/jobs",
@@ -74,7 +67,7 @@ def test_post_jobs_creates_job_and_redirects(monkeypatch):
 
 
 def test_post_jobs_rejects_non_image():
-    app = create_app(engine=_FakeEngine(), classifier=_FakeClassifier())
+    app = create_app(engine=_FakeEngine(), classifier=FakeClassifier())
     with TestClient(app) as client:
         resp = client.post(
             "/jobs",
@@ -85,7 +78,7 @@ def test_post_jobs_rejects_non_image():
 
 
 def test_post_jobs_rejects_oversized_image():
-    app = create_app(engine=_FakeEngine(), classifier=_FakeClassifier())
+    app = create_app(engine=_FakeEngine(), classifier=FakeClassifier())
     big = b"x" * (MAX_UPLOAD_BYTES + 1)
     with TestClient(app) as client:
         resp = client.post(
@@ -97,20 +90,24 @@ def test_post_jobs_rejects_oversized_image():
 
 
 def test_progress_page_404_for_unknown_job():
-    app = create_app(engine=_FakeEngine(), classifier=_FakeClassifier())
+    app = create_app(engine=_FakeEngine(), classifier=FakeClassifier())
     with TestClient(app) as client:
         assert client.get("/jobs/nope").status_code == HTTPStatus.NOT_FOUND
 
 
 def test_sse_404_for_unknown_job():
-    app = create_app(engine=_FakeEngine(), classifier=_FakeClassifier())
+    app = create_app(engine=_FakeEngine(), classifier=FakeClassifier())
     with TestClient(app) as client:
         assert client.get("/jobs/nope/events").status_code == HTTPStatus.NOT_FOUND
 
 
 @contextlib.contextmanager
 def _completed_job(monkeypatch, fake_ocr_result):
-    """Yield an entered client and the id of a job driven to completion."""
+    """Yield (client, job_id, events) for a job driven to completion.
+
+    ``events`` is the SSE body that drained the job's queue, for tests that
+    assert on the streamed stage events.
+    """
     monkeypatch.setattr(
         pipeline_mod,
         "enrich_record",
@@ -118,13 +115,8 @@ def _completed_job(monkeypatch, fake_ocr_result):
             scientificName="Papilio machaon", country="Switzerland"
         ),
     )
-
-    class _Engine:
-        def run(self, image_path):
-            return fake_ocr_result
-
     with TestClient(
-        create_app(engine=_Engine(), classifier=_FakeClassifier())
+        create_app(engine=StaticEngine(fake_ocr_result), classifier=FakeClassifier())
     ) as client:
         resp = client.post(
             "/jobs",
@@ -132,12 +124,12 @@ def _completed_job(monkeypatch, fake_ocr_result):
             follow_redirects=False,
         )
         job_id = resp.headers["location"].split("/")[-1]
-        client.get(f"/jobs/{job_id}/events")  # drain to completion
-        yield client, job_id
+        events = client.get(f"/jobs/{job_id}/events").text  # drain to completion
+        yield client, job_id, events
 
 
 def test_review_renders_record(monkeypatch, fake_ocr_result):
-    with _completed_job(monkeypatch, fake_ocr_result) as (client, job_id):
+    with _completed_job(monkeypatch, fake_ocr_result) as (client, job_id, _):
         resp = client.get(f"/jobs/{job_id}/review")
     assert resp.status_code == HTTPStatus.OK
     assert "Papilio machaon" in resp.text
@@ -151,20 +143,20 @@ def test_review_renders_record(monkeypatch, fake_ocr_result):
 
 
 def test_image_served(monkeypatch, fake_ocr_result):
-    with _completed_job(monkeypatch, fake_ocr_result) as (client, job_id):
+    with _completed_job(monkeypatch, fake_ocr_result) as (client, job_id, _):
         resp = client.get(f"/jobs/{job_id}/image")
     assert resp.status_code == HTTPStatus.OK
     assert resp.headers["content-type"].startswith("image/")
 
 
 def test_image_404_for_unknown_job():
-    app = create_app(engine=_FakeEngine(), classifier=_FakeClassifier())
+    app = create_app(engine=_FakeEngine(), classifier=FakeClassifier())
     with TestClient(app) as client:
         assert client.get("/jobs/nope/image").status_code == HTTPStatus.NOT_FOUND
 
 
 def test_export_csv_round_trips(monkeypatch, fake_ocr_result):
-    with _completed_job(monkeypatch, fake_ocr_result) as (client, job_id):
+    with _completed_job(monkeypatch, fake_ocr_result) as (client, job_id, _):
         resp = client.post(
             f"/jobs/{job_id}/export?format=csv",
             data={"scientificName": "Papilio machaon", "country": "Switzerland"},
@@ -177,7 +169,7 @@ def test_export_csv_round_trips(monkeypatch, fake_ocr_result):
 
 
 def test_export_json(monkeypatch, fake_ocr_result):
-    with _completed_job(monkeypatch, fake_ocr_result) as (client, job_id):
+    with _completed_job(monkeypatch, fake_ocr_result) as (client, job_id, _):
         resp = client.post(
             f"/jobs/{job_id}/export?format=json",
             data={"scientificName": "Papilio machaon"},
@@ -187,7 +179,7 @@ def test_export_json(monkeypatch, fake_ocr_result):
 
 
 def test_export_validation_error_rerenders(monkeypatch, fake_ocr_result):
-    with _completed_job(monkeypatch, fake_ocr_result) as (client, job_id):
+    with _completed_job(monkeypatch, fake_ocr_result) as (client, job_id, _):
         resp = client.post(
             f"/jobs/{job_id}/export?format=csv",
             data={"decimalLatitude": "999"},  # out of [-90, 90]
@@ -198,14 +190,14 @@ def test_export_validation_error_rerenders(monkeypatch, fake_ocr_result):
 
 
 def test_export_404_for_unknown_job():
-    app = create_app(engine=_FakeEngine(), classifier=_FakeClassifier())
+    app = create_app(engine=_FakeEngine(), classifier=FakeClassifier())
     with TestClient(app) as client:
         resp = client.post("/jobs/nope/export?format=csv", data={"scientificName": "X"})
     assert resp.status_code == HTTPStatus.NOT_FOUND
 
 
 def test_export_unknown_format_returns_400(monkeypatch, fake_ocr_result):
-    with _completed_job(monkeypatch, fake_ocr_result) as (client, job_id):
+    with _completed_job(monkeypatch, fake_ocr_result) as (client, job_id, _):
         resp = client.post(
             f"/jobs/{job_id}/export?format=xml",
             data={"scientificName": "Papilio machaon"},
@@ -214,24 +206,8 @@ def test_export_unknown_format_returns_400(monkeypatch, fake_ocr_result):
 
 
 def test_sse_stream_emits_done(monkeypatch, fake_ocr_result):
-    # Use the real runner but a fake engine + stubbed enrich for a deterministic run.
-    monkeypatch.setattr(
-        pipeline_mod, "enrich_record", lambda doc: DarwinCoreRecord(scientificName="X")
-    )
-
-    class _Engine:
-        def run(self, image_path):
-            return fake_ocr_result
-
-    app = create_app(engine=_Engine(), classifier=_FakeClassifier())
-    with TestClient(app) as client:
-        resp = client.post(
-            "/jobs",
-            files={"image": ("s.png", io.BytesIO(_png_bytes()), "image/png")},
-            follow_redirects=False,
-        )
-        job_id = resp.headers["location"].split("/")[-1]
-        body = client.get(f"/jobs/{job_id}/events").text
+    with _completed_job(monkeypatch, fake_ocr_result) as (_, _, body):
+        pass
     # Every pipeline stage is streamed, with started/finished status, then done.
     assert '"stage":"ocr"' in body
     assert '"stage":"classify"' in body
@@ -245,23 +221,7 @@ def test_sse_reconnect_after_completion(monkeypatch, fake_ocr_result):
     # Regression: a second /events connection after the queue has been drained
     # must not hang on the empty single-consumer queue -- it should short-circuit
     # to the terminal event (the spec's "leave the page and return" flow).
-    monkeypatch.setattr(
-        pipeline_mod, "enrich_record", lambda doc: DarwinCoreRecord(scientificName="X")
-    )
-
-    class _Engine:
-        def run(self, image_path):
-            return fake_ocr_result
-
-    app = create_app(engine=_Engine(), classifier=_FakeClassifier())
-    with TestClient(app) as client:
-        resp = client.post(
-            "/jobs",
-            files={"image": ("s.png", io.BytesIO(_png_bytes()), "image/png")},
-            follow_redirects=False,
-        )
-        job_id = resp.headers["location"].split("/")[-1]
-        first = client.get(f"/jobs/{job_id}/events").text  # drains the queue
+    with _completed_job(monkeypatch, fake_ocr_result) as (client, job_id, first):
         second = client.get(f"/jobs/{job_id}/events").text  # must not block
     assert '"status":"done"' in first
     assert '"status":"done"' in second
@@ -281,7 +241,7 @@ def test_derive_locality_replaces_section(monkeypatch):
             "decimalLongitude": 6.3024,
         },
     )
-    app = create_app(engine=_FakeEngine(), classifier=_FakeClassifier())
+    app = create_app(engine=_FakeEngine(), classifier=FakeClassifier())
     with TestClient(app) as client:
         resp = client.post(
             "/derive/locality", data={"verbatimLocality": "Mont Tendre, Vaud"}
@@ -304,7 +264,7 @@ def test_derive_identification(monkeypatch):
             "specificEpithet": "machaon",
         },
     )
-    app = create_app(engine=_FakeEngine(), classifier=_FakeClassifier())
+    app = create_app(engine=_FakeEngine(), classifier=FakeClassifier())
     with TestClient(app) as client:
         resp = client.post(
             "/derive/identification",
@@ -315,7 +275,7 @@ def test_derive_identification(monkeypatch):
 
 
 def test_derive_unknown_source_404():
-    app = create_app(engine=_FakeEngine(), classifier=_FakeClassifier())
+    app = create_app(engine=_FakeEngine(), classifier=FakeClassifier())
     with TestClient(app) as client:
         assert client.post("/derive/nope", data={}).status_code == HTTPStatus.NOT_FOUND
 
@@ -329,7 +289,7 @@ def test_derive_empty_verbatim_skips_lookup(monkeypatch):
         return {}
 
     monkeypatch.setattr(routes_mod, "enrich_locations", spy)
-    app = create_app(engine=_FakeEngine(), classifier=_FakeClassifier())
+    app = create_app(engine=_FakeEngine(), classifier=FakeClassifier())
     with TestClient(app) as client:
         resp = client.post("/derive/locality", data={"verbatimLocality": "   "})
     assert resp.status_code == HTTPStatus.OK
@@ -342,7 +302,7 @@ def test_derive_lookup_failure_returns_502(monkeypatch):
         raise RuntimeError("nominatim unreachable")
 
     monkeypatch.setattr(routes_mod, "enrich_locations", boom)
-    app = create_app(engine=_FakeEngine(), classifier=_FakeClassifier())
+    app = create_app(engine=_FakeEngine(), classifier=FakeClassifier())
     with TestClient(app) as client:
         resp = client.post("/derive/locality", data={"verbatimLocality": "Vaud"})
     assert resp.status_code == HTTPStatus.BAD_GATEWAY

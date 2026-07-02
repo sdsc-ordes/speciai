@@ -127,12 +127,6 @@ def _as_pairs(value: object) -> list[tuple[str, str]]:
     return pairs
 
 
-def _first_str(value: object) -> str | None:
-    """Coerce an LLM value into a single string (first non-empty), or ``None``."""
-    items = _as_str_list(value)
-    return items[0] if items else None
-
-
 def _to_classified_record(raw: dict) -> ClassifiedRecord:
     """Map the classifier's raw ``{label: value}`` dict onto a ``ClassifiedRecord``.
 
@@ -146,7 +140,10 @@ def _to_classified_record(raw: dict) -> ClassifiedRecord:
         scientificName=_as_str_list(raw.get("scientificName")),
         authorship=_as_pairs(raw.get("authorship")),
         sex=_as_str_list(raw.get("sex")),
-        verbatimCoordinates=_first_str(raw.get("verbatimCoordinates")),
+        # Collapse to the first non-empty string, or None.
+        verbatimCoordinates=next(
+            iter(_as_str_list(raw.get("verbatimCoordinates"))), None
+        ),
     )
 
 

@@ -7,6 +7,7 @@ they are constructed once in the lifespan and shared via ``app.state.engine`` /
 
 from __future__ import annotations
 
+import asyncio
 import tempfile
 from contextlib import asynccontextmanager
 from pathlib import Path
@@ -35,10 +36,16 @@ def create_app(
     models; when omitted they are constructed once on startup.
     """
 
+    async def _provide(injected, factory):
+        """Return the injected instance, or build one on a worker thread."""
+        return injected if injected is not None else await asyncio.to_thread(factory)
+
     @asynccontextmanager
     async def lifespan(app: FastAPI):
-        app.state.engine = engine if engine is not None else OCREngine()
-        app.state.classifier = classifier if classifier is not None else Classifier()
+        # Both models are slow to load and independent: load them concurrently.
+        app.state.engine, app.state.classifier = await asyncio.gather(
+            _provide(engine, OCREngine), _provide(classifier, Classifier)
+        )
         app.state.jobs = JobRegistry()
         # Scratch dir for uploaded images, removed deterministically on shutdown.
         with tempfile.TemporaryDirectory(prefix="speciai-uploads-") as upload_dir:
