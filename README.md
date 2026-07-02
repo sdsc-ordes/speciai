@@ -67,6 +67,12 @@ Install the web extras and start the server:
     uv sync --group web
     just run serve                  # or: uv run speciai serve --host 127.0.0.1 --port 8000
 
+Or run it in a container (image: `tools/images/Containerfile`); `./data` is
+mounted at `/app/data` and model caches persist in a named volume. The Gemma
+model is licence-gated, so export `HF_TOKEN` (or put it in `.env`) first:
+
+    docker compose up             # or: podman compose up / just image::serve
+
 Open http://127.0.0.1:8000, choose a specimen image, watch it go through OCR ->
 classify -> enrich, review the Darwin Core record beside the image, and export
 it as a CSV or JSON.

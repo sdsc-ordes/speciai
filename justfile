@@ -12,6 +12,8 @@ mod external "./tools/just/external.just"
 mod nix "./tools/just/nix.just"
 [group('modules')]
 mod sops "./tools/just/sops.just"
+[group('modules')]
+mod image "./tools/just/image.just"
 
 # Default target if you do not specify a target.
 default:
