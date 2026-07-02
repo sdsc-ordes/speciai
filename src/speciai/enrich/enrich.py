@@ -21,6 +21,7 @@ def enrich_record(doc: ClassifiedRecord) -> DarwinCoreRecord:
     output["verbatimCoordinates"] = doc.verbatimCoordinates
 
     output["catalogNumber"] = " ".join(doc.catalogNumber) or None
+    output["sex"] = " ".join(doc.sex) or None
 
     output |= enrich_species(doc.scientificName)
     output |= enrich_authorships(doc.authorship, output.get("scientificNameAuthorship"))
