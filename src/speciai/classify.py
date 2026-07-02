@@ -1,3 +1,4 @@
+from functools import lru_cache
 import json
 import re
 
@@ -12,6 +13,13 @@ RULES = {
     "sex": re.compile(r"\b(?:fe)?male\b", re.IGNORECASE),
 }
 
+@lru_cache(1)
+def _get_model(model_id: str):
+    return AutoModelForCausalLM.from_pretrained(model_id, dtype="auto", device_map="auto")
+
+@lru_cache(1)
+def _get_processor(processor_id: str):
+    return AutoProcessor.from_pretrained(processor_id)
 
 def combine_ocr_labels(result) -> str:
     """Combine all OCR'd labels into a single string,
@@ -77,8 +85,8 @@ def classify_text(processor, model, full_text: str, target_labels: list[str]) ->
 def run(ocr_results):
     """Yield a classification record for each OCR result: rule-extract, then
     classify the remainder with the LLM."""
-    processor = AutoProcessor.from_pretrained(MODEL_ID)
-    model = AutoModelForCausalLM.from_pretrained(MODEL_ID, dtype="auto", device_map="auto")
+    processor = _get_processor(MODEL_ID)
+    model = _get_model(MODEL_ID)
 
 
     full_text = combine_ocr_labels(ocr_results)
