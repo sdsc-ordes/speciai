@@ -28,10 +28,10 @@ flowchart TD
     EXPORT --> JSONOUT
     REVIEW -->|corrections| ENRICH
 
-    IMG -.- DOCTR
-    LAYOUT -.- GEMMA
-    DWC -.- ENRICHTECH
-    ENRICHED -.- FORM
+    OCR -.- DOCTR
+    CLASSIFY -.- GEMMA
+    ENRICH -.- ENRICHTECH
+    REVIEW -.- FORM
 
     classDef data fill:#eef3fc,stroke:#4c6ef5,color:#1a1a1a;
     classDef proc fill:#fff4e6,stroke:#e8590c,color:#1a1a1a;
