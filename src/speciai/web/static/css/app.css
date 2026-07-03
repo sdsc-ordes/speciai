@@ -202,16 +202,14 @@ a:focus {
   outline-offset: 4px;
 }
 
-/* Square brand tile: white on the dark-blue header, holding the blue butterfly
-   mark (a specimen motif rendered in the kit's square, two-blue language). */
+/* Wasp mark: white glyph directly on the dark-blue header, no tile. */
 .brand-mark {
   display: inline-flex;
   align-items: center;
   justify-content: center;
   width: 28px;
   height: 28px;
-  background: var(--op-text-on-blue);
-  color: var(--op-blue-dark);
+  color: var(--op-text-on-blue);
 }
 
 .brand-glyph {
