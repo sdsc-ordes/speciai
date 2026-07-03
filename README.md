@@ -60,6 +60,34 @@ flowchart TD
 - [x] Identify relevant sources for enrichment.
 - [ ] Should we use a workflow manager (metaflow, temporal) to connect steps.
 
+## Web review UI
+
+Install the web extras and start the server:
+
+    uv sync --group web
+    just run serve                  # or: uv run speciai serve --host 127.0.0.1 --port 8000
+
+Or run it in a container (image: `tools/images/Containerfile`); `./data` is
+mounted at `/app/data` and model caches persist in a named volume. The Gemma
+model is licence-gated, so export `HF_TOKEN` (or put it in `.env`) first:
+
+    docker compose up             # or: podman compose up / just image::serve
+
+Open http://127.0.0.1:8000, choose a specimen image, watch it go through OCR ->
+classify -> enrich, review the Darwin Core record beside the image, and export
+it as a CSV or JSON.
+
+Workflow:
+
+1. **Upload**: Drag or choose an image on the start page.
+2. **Progress**: The browser streams live stage updates (OCR, classify, enrich)
+   via Server-Sent Events. You can leave the page and return.
+3. **Review**: Shows the original image alongside the pre-filled Darwin Core
+   form. Edit any field before exporting.
+4. **Export**: "Export CSV" downloads a Specify-WorkBench-compatible file whose
+   column headers are DarwinCore terms. "Export JSON" returns the same record as
+   JSON.
+
 ## Installation
 
 Describe the installation instruction here.

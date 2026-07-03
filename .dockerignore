@@ -1,0 +1,9 @@
+# Keep the build context to what the image build actually copies.
+.git
+.venv
+.output
+data
+docs
+examples
+external
+tests

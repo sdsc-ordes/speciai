@@ -1,0 +1,857 @@
+/* speciai -- SDSC design system tokens and component styles
+   Fonts (loaded from web font services; resolve in deployment):
+     Space Grotesk -> headings, Switzer -> body/UI, Fira Code -> code/IDs.
+   System sans/mono stacks remain as graceful fallbacks.
+   NOTE: Fira Code is an app-level choice; the SDSC kit specifies JetBrains Mono. */
+@import url("https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&display=swap");
+@import url("https://api.fontshare.com/v2/css?f[]=switzer@400,500,600&display=swap");
+@import url("https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;500&display=swap");
+
+/* -----------------------------------------------------------------------
+   Token definitions
+   ----------------------------------------------------------------------- */
+
+:root {
+  /* Surfaces */
+  --op-bg: #fafafa;
+  --op-surface: #ffffff;
+  --op-surface-2: #f5f5f5;
+  --op-surface-active: #e9ebef;
+  --op-border: #e5e5e5;
+  --op-border-subtle: #f0f0f2;
+
+  /* Brand blues */
+  --op-blue-darker: #161438;
+  --op-blue-dark: #26245c;
+  --op-blue-mid: #3a4585;
+  --op-blue: #5461a6;
+  --op-blue-light: #8a94c9;
+  --op-blue-pale: #dddeec;
+
+  /* Secondary accent (progress-complete states and highlights) */
+  --op-green: #90ca42;
+
+  /* Text */
+  --op-text: #000000;
+  --op-text-2: #525252;
+  --op-text-muted: #848484;
+  --op-text-faint: #a3a3a3;
+  --op-text-on-blue: #ffffff;
+
+  /* Links */
+  --op-link: #5461a6;
+  --op-link-hover: #26245c;
+
+  /* Status (badges, alerts, toasts only -- never chrome) */
+  --op-success: #10b981;
+  --op-warning: #f59e0b;
+  --op-error: #ef4444;
+  --op-info: #3b82f6;
+
+  /* Footer */
+  --op-footer-bg: #000000;
+  --op-footer-border: rgba(255, 255, 255, 0.1);
+}
+
+.dark {
+  /* Surfaces */
+  --op-bg: #0c0c12;
+  --op-surface: #141420;
+  --op-surface-2: #1c1c2c;
+  --op-surface-active: #1a1834;
+  --op-border: #242438;
+  --op-border-subtle: #1a1a28;
+
+  /* Brand blues (pale steps to deep blue in dark mode) */
+  --op-blue-darker: #161438;
+  --op-blue-dark: #26245c;
+  --op-blue-mid: #3a4585;
+  --op-blue: #5461a6;
+  --op-blue-light: #8a94c9;
+  --op-blue-pale: #1a1834;
+
+  /* Secondary accent (stepped lighter for near-black) */
+  --op-green: #a4d564;
+
+  /* Text */
+  --op-text: #f4f4fc;
+  --op-text-2: #c0c0dc;
+  --op-text-muted: #9898b8;
+  --op-text-faint: #6a6a88;
+  --op-text-on-blue: #ffffff;
+
+  /* Links */
+  --op-link: #8a94c9;
+  --op-link-hover: #5461a6;
+
+  /* Status (stepped lighter for near-black) */
+  --op-success: #4ade80;
+  --op-warning: #fbbf24;
+  --op-error: #f87171;
+  --op-info: #5461a6;
+
+  /* Footer */
+  --op-footer-bg: #000000;
+  --op-footer-border: rgba(255, 255, 255, 0.1);
+}
+
+/* -----------------------------------------------------------------------
+   Reset and base
+   ----------------------------------------------------------------------- */
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html {
+  font-size: 16px;
+  -webkit-text-size-adjust: 100%;
+}
+
+body {
+  font-family: "Switzer", system-ui, sans-serif;
+  font-size: 1rem;
+  font-weight: 400;
+  line-height: 1.6;
+  color: var(--op-text-2);
+  background: var(--op-bg);
+  min-height: 100vh;
+}
+
+h1,
+h2,
+h3,
+h4,
+h5,
+h6 {
+  font-family: "Space Grotesk", system-ui, sans-serif;
+  font-weight: 700;
+  line-height: 1.25;
+  color: var(--op-text);
+}
+
+h1 {
+  font-size: 2rem;
+  letter-spacing: -0.02em;
+}
+h2 {
+  font-size: 1.5rem;
+  letter-spacing: -0.02em;
+}
+h3 {
+  font-size: 1.25rem;
+  font-weight: 600;
+}
+h4 {
+  font-size: 1.125rem;
+  font-weight: 600;
+}
+
+p {
+  color: var(--op-text-2);
+  line-height: 1.6;
+}
+
+a {
+  color: var(--op-link);
+  text-decoration: underline;
+  transition: color 0.15s;
+}
+
+a:hover,
+a:focus {
+  color: var(--op-link-hover);
+}
+
+/* -----------------------------------------------------------------------
+   Top bar
+   ----------------------------------------------------------------------- */
+
+.topbar {
+  position: sticky;
+  top: 0;
+  z-index: 100;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  height: 56px;
+  padding: 0 24px;
+  background: var(--op-blue-dark);
+  border-bottom: 1px solid var(--op-blue-darker);
+}
+
+.brand {
+  display: inline-flex;
+  align-items: center;
+  gap: 12px;
+  text-decoration: none;
+  color: var(--op-text-on-blue);
+}
+
+.brand:hover,
+.brand:focus {
+  color: var(--op-text-on-blue);
+}
+
+.brand:focus-visible {
+  outline: 2px solid var(--op-blue-light);
+  outline-offset: 4px;
+}
+
+/* Wasp mark: white glyph directly on the dark-blue header, no tile. */
+.brand-mark {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  color: var(--op-text-on-blue);
+}
+
+.brand-glyph {
+  display: block;
+  width: 22px;
+  height: 22px;
+}
+
+.brand-name {
+  font-family: "Space Grotesk", system-ui, sans-serif;
+  font-size: 1rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+}
+
+/* Breadcrumb-style context, set off by a slash from the wordmark. */
+.brand-sub {
+  font-family: "Switzer", system-ui, sans-serif;
+  font-size: 0.875rem;
+  font-weight: 400;
+  letter-spacing: 0.01em;
+  color: var(--op-blue-light);
+}
+
+.brand-sub::before {
+  content: "/";
+  margin-right: 12px;
+  color: var(--op-blue-mid);
+}
+
+@media (max-width: 640px) {
+  .brand-sub {
+    display: none;
+  }
+}
+
+/* -----------------------------------------------------------------------
+   Page container
+   ----------------------------------------------------------------------- */
+
+.container {
+  max-width: 1280px;
+  margin: 0 auto;
+  padding: 48px 24px;
+}
+
+/* -----------------------------------------------------------------------
+   Start page -- dropzone card
+   ----------------------------------------------------------------------- */
+
+.dropzone {
+  margin-top: 32px;
+  padding: 48px 32px;
+  background: var(--op-surface);
+  /* Dashed outline signals a drop target; square corners per design system. */
+  border: 1px dashed var(--op-blue-light);
+  border-radius: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 16px;
+}
+
+.drop-title {
+  font-family: "Space Grotesk", system-ui, sans-serif;
+  font-size: 1.125rem;
+  font-weight: 600;
+  color: var(--op-text);
+}
+
+.dropzone .file-label {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 12px 24px;
+  background: var(--op-blue);
+  color: var(--op-text-on-blue);
+  font-family: "Switzer", system-ui, sans-serif;
+  font-size: 0.875rem;
+  font-weight: 400;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: background 0.15s;
+  min-height: 44px;
+}
+
+.dropzone .file-label:hover {
+  background: var(--op-blue-mid);
+}
+
+.dropzone .file-label:focus-within {
+  outline: 2px solid var(--op-blue);
+  outline-offset: 2px;
+}
+
+/* Hide the native file input visually but keep it accessible */
+.dropzone .file-label input[type="file"] {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}
+
+.dropzone .hint {
+  font-size: 0.875rem;
+  color: var(--op-text-muted);
+  font-family: "Switzer", system-ui, sans-serif;
+}
+
+/* Content label pattern: a circle-prefixed, uppercase, muted section label.
+   The kit's signature; opens every titled section. 12px below to the title. */
+.section-label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-family: "Switzer", system-ui, sans-serif;
+  font-size: 0.875rem;
+  font-weight: 500;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--op-text-muted);
+  margin-bottom: 12px;
+}
+
+/* Lead paragraph under a page title. */
+.lead {
+  max-width: 70ch;
+  margin-top: 16px;
+  font-size: 1.125rem;
+  color: var(--op-text-2);
+}
+
+/* -----------------------------------------------------------------------
+   Progress page -- overall progress bar
+   ----------------------------------------------------------------------- */
+
+.progress {
+  margin-top: 32px;
+}
+
+.progress-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  margin-bottom: 12px;
+}
+
+.progress-label {
+  font-family: "Switzer", system-ui, sans-serif;
+  font-size: 0.875rem;
+  color: var(--op-text-2);
+}
+
+.progress-pct {
+  font-family: "Fira Code", ui-monospace, "Courier New", monospace;
+  font-size: 0.875rem;
+  color: var(--op-text);
+}
+
+/* 8px track, 4px radius; blue fill, green at completion (per design system). */
+.progress-track {
+  height: 8px;
+  width: 100%;
+  background: var(--op-border);
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.progress-fill {
+  height: 100%;
+  width: 0;
+  background: var(--op-blue);
+  border-radius: 4px;
+  transition: width 0.3s ease;
+}
+
+.progress-fill.complete {
+  background: var(--op-green);
+}
+
+/* -----------------------------------------------------------------------
+   Progress page -- stepper
+   ----------------------------------------------------------------------- */
+
+.stepper {
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  margin-top: 32px;
+  border: 1px solid var(--op-border);
+  background: var(--op-surface);
+}
+
+.step {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 16px 24px;
+  font-family: "Switzer", system-ui, sans-serif;
+  font-size: 0.9375rem;
+  color: var(--op-text-muted);
+  border-bottom: 1px solid var(--op-border);
+  position: relative;
+  transition:
+    background 0.15s,
+    color 0.15s;
+}
+
+.step:last-child {
+  border-bottom: none;
+}
+
+/* Per-step execution time, pushed to the right edge of the row */
+.step-time {
+  margin-left: auto;
+  font-variant-numeric: tabular-nums;
+  font-size: 0.8125rem;
+  color: var(--op-text-muted);
+}
+
+/* Step state indicator dot */
+.step::before {
+  content: "";
+  display: block;
+  flex-shrink: 0;
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: var(--op-border);
+  border: 2px solid var(--op-border);
+  transition:
+    background 0.2s,
+    border-color 0.2s;
+}
+
+/* Running step (active / in-progress) */
+.step.running {
+  color: var(--op-text);
+  background: var(--op-surface-active);
+}
+
+.step.running::before {
+  background: var(--op-blue);
+  border-color: var(--op-blue);
+}
+
+/* Completed step */
+.step.done {
+  color: var(--op-text);
+  background: var(--op-surface);
+}
+
+.step.done::before {
+  background: var(--op-green);
+  border-color: var(--op-green);
+}
+
+/* Error step */
+.step.error {
+  color: var(--op-error);
+}
+
+.step.error::before {
+  background: var(--op-error);
+  border-color: var(--op-error);
+}
+
+/* -----------------------------------------------------------------------
+   Review page -- two-column layout
+   ----------------------------------------------------------------------- */
+
+.review {
+  display: grid;
+  grid-template-columns: minmax(280px, 1fr) 1.4fr;
+  gap: 32px;
+  align-items: start;
+  margin-top: 32px;
+}
+
+@media (max-width: 768px) {
+  .review {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* Image panel (left column), kept in view while scrolling the form. */
+.image-panel {
+  margin: 0;
+  padding: 24px;
+  background: var(--op-surface);
+  border: 1px solid var(--op-border);
+  border-radius: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  position: sticky;
+  top: 80px;
+}
+
+@media (max-width: 768px) {
+  .image-panel {
+    position: static;
+  }
+}
+
+.image-panel img {
+  display: block;
+  width: 100%;
+  height: auto;
+  max-width: 100%;
+  border: 1px solid var(--op-border-subtle);
+}
+
+.image-cap {
+  font-family: "Fira Code", ui-monospace, "Courier New", monospace;
+  font-size: 0.75rem;
+  color: var(--op-text-muted);
+}
+
+/* Record form (right column) */
+.record-form {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+  padding: 32px;
+  background: var(--op-surface);
+  border: 1px solid var(--op-border);
+  border-radius: 0;
+}
+
+/* Record card header: section label on the left, term-set badge on the right. */
+.record-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding-bottom: 16px;
+  border-bottom: 1px solid var(--op-border-subtle);
+}
+
+.record-head .section-label {
+  margin-bottom: 0;
+}
+
+/* Field group (fieldset): a labelled cluster of related Darwin Core terms. */
+.field-group {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  border: none;
+  padding: 0;
+  margin: 0;
+}
+
+.field-group + .field-group {
+  padding-top: 24px;
+  border-top: 1px solid var(--op-border-subtle);
+}
+
+/* Group heading: a level below the card's circle-prefixed record label. */
+.group-label {
+  padding: 0;
+  font-family: "Switzer", system-ui, sans-serif;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--op-text-muted);
+}
+
+/* Individual field wrapper */
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+/* Field label row: term name plus an optional provenance badge. */
+.field-label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-family: "Switzer", system-ui, sans-serif;
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: var(--op-text-2);
+  letter-spacing: 0.01em;
+}
+
+/* Field inputs */
+.field input,
+.record-form input[type="text"],
+.record-form input[type="number"] {
+  width: 100%;
+  padding: 8px 12px;
+  font-family: "Switzer", system-ui, sans-serif;
+  font-size: 0.9375rem;
+  color: var(--op-text);
+  background: var(--op-surface);
+  border: 1px solid var(--op-border);
+  border-radius: 4px;
+  transition:
+    border-color 0.15s,
+    box-shadow 0.15s;
+}
+
+.field input:focus,
+.record-form input:focus {
+  outline: none;
+  border-color: var(--op-blue);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--op-blue) 20%, transparent);
+}
+
+.field input::placeholder {
+  color: var(--op-text-muted);
+}
+
+/* Verbatim 'as read' source: distinct surface + monospace, like a raw value. */
+.field-verbatim input {
+  background: var(--op-surface-2);
+  font-family: "Fira Code", ui-monospace, "Courier New", monospace;
+  font-size: 0.875rem;
+}
+
+/* Interpreted fields hang off their verbatim source with a connecting rule. */
+.field-interpreted {
+  border-left: 2px solid var(--op-border);
+  padding-left: 14px;
+  margin-left: 2px;
+}
+
+/* Collapsible empty fields within a group. */
+.empties > summary {
+  width: fit-content;
+  cursor: pointer;
+  font-size: 0.8125rem;
+  color: var(--op-link);
+}
+
+.empties > summary:hover {
+  color: var(--op-link-hover);
+}
+
+.empties > summary:focus-visible {
+  outline: 2px solid var(--op-blue);
+  outline-offset: 2px;
+}
+
+.empties[open] > summary {
+  margin-bottom: 14px;
+}
+
+/* Swap the summary label between collapsed (show) and expanded (hide) states. */
+.empties:not([open]) .empties-hide,
+.empties[open] .empties-show {
+  display: none;
+}
+
+.empties-body {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+/* Re-derive: a small icon-only control beside a re-derivable verbatim field,
+   pushed to the right of the label row. A refresh glyph; the action ("Re-derive")
+   is exposed via the button's title (hover) and aria-label. Re-runs the
+   section's enrichment. */
+.rederive {
+  margin-left: auto;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  color: var(--op-blue);
+  background: transparent;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  transition:
+    background 0.15s,
+    color 0.15s;
+}
+
+.rederive-icon {
+  display: block;
+  width: 16px;
+  height: 16px;
+}
+
+.rederive:hover {
+  background: var(--op-surface-2);
+  color: var(--op-blue-dark);
+}
+
+.rederive:focus-visible {
+  outline: 2px solid var(--op-blue);
+  outline-offset: 2px;
+}
+
+.rederive[disabled] {
+  color: var(--op-text-faint);
+  cursor: progress;
+}
+
+/* Spin the glyph while a lookup is in flight (motion-safe). */
+@media (prefers-reduced-motion: no-preference) {
+  .rederive.loading .rederive-icon {
+    animation: spin 0.8s linear infinite;
+  }
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.rederive-msg {
+  flex-basis: 100%;
+  font-size: 0.75rem;
+  color: var(--op-error);
+}
+
+/* Inline validation error */
+.field-error {
+  font-family: "Switzer", system-ui, sans-serif;
+  font-size: 0.8125rem;
+  color: var(--op-error);
+  padding: 4px 0;
+}
+
+/* Actions bar (Export buttons) */
+.actions {
+  display: flex;
+  gap: 12px;
+  margin-top: 8px;
+  flex-wrap: wrap;
+}
+
+.actions button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 10px 24px;
+  min-height: 44px;
+  font-family: "Switzer", system-ui, sans-serif;
+  font-size: 0.875rem;
+  font-weight: 400;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+/* Primary action button: first button in .actions */
+.actions button:first-child {
+  background: var(--op-blue);
+  color: var(--op-text-on-blue);
+}
+
+.actions button:first-child:hover {
+  background: var(--op-blue-mid);
+}
+
+.actions button:first-child:active {
+  background: var(--op-blue-dark);
+}
+
+/* Secondary action button */
+.actions button:not(:first-child) {
+  background: transparent;
+  color: var(--op-blue);
+  border: 1px solid var(--op-blue);
+}
+
+.actions button:not(:first-child):hover {
+  background: var(--op-surface-2);
+}
+
+/* Focus ring for all buttons */
+.actions button:focus-visible {
+  outline: 2px solid var(--op-blue);
+  outline-offset: 2px;
+}
+
+/* -----------------------------------------------------------------------
+   Status badge -- a semantic color on a low-alpha fill of the same color
+   ----------------------------------------------------------------------- */
+
+.badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 2px 10px;
+  font-family: "Switzer", system-ui, sans-serif;
+  font-size: 0.75rem;
+  font-weight: 500;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  border-radius: 4px;
+  color: var(--op-text-muted);
+  background: color-mix(in srgb, var(--op-text-muted) 12%, transparent);
+  white-space: nowrap;
+}
+
+.badge-info {
+  color: var(--op-blue);
+  background: color-mix(in srgb, var(--op-blue) 12%, transparent);
+}
+
+.badge-success {
+  color: var(--op-success);
+  background: color-mix(in srgb, var(--op-success) 12%, transparent);
+}
+
+.badge-warning {
+  color: var(--op-warning);
+  background: color-mix(in srgb, var(--op-warning) 12%, transparent);
+}
+
+.badge-error {
+  color: var(--op-error);
+  background: color-mix(in srgb, var(--op-error) 12%, transparent);
+}
+
+/* -----------------------------------------------------------------------
+   Utility: monospace for IDs and code
+   ----------------------------------------------------------------------- */
+
+.mono,
+code,
+pre {
+  font-family: "Fira Code", ui-monospace, "Courier New", monospace;
+}

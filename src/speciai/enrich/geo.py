@@ -15,6 +15,21 @@ OSM_ADDRESS_MAPPINGS: dict[OSMField, DWCTerm] = {
     'country': 'country'
 }
 
+# Every Darwin Core field ``enrich_locations`` can emit. This is the module's
+# output contract: callers (e.g. the review form's re-derive) key off it, and a
+# test asserts the helper never emits a key outside this set. ``verbatimLocality``
+# is the echoed input; the rest are interpreted/inferred.
+LOCATION_FIELDS: tuple[DWCTerm, ...] = (
+    'verbatimLocality',
+    'locality',
+    'continent',
+    'country',
+    'countryCode',
+    'stateProvince',
+    'decimalLatitude',
+    'decimalLongitude',
+)
+
 # Country code -> continent name Based on wikipedia
 COUNTRY_ALPHA2_TO_CONTINENT = {
     'AB': 'Asia',

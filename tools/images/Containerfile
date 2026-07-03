@@ -1,0 +1,19 @@
+# Review web server image: `speciai serve` on port 8000.
+FROM ghcr.io/astral-sh/uv:python3.13-bookworm-slim
+
+# opencv (pulled in via doctr) needs these shared libraries at runtime.
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends libgl1 libglib2.0-0 libxcb1 \
+    && rm -rf /var/lib/apt/lists/*
+
+WORKDIR /app
+ENV UV_COMPILE_BYTECODE=1 UV_LINK_MODE=copy
+
+# README.md is referenced by pyproject and required to build the package.
+COPY README.md pyproject.toml uv.lock ./
+COPY src ./src
+RUN uv sync --locked --no-dev
+
+EXPOSE 8000
+# 0.0.0.0: the CLI default 127.0.0.1 is unreachable from outside the container.
+CMD ["uv", "run", "--no-sync", "speciai", "serve", "--host", "0.0.0.0", "--port", "8000"]

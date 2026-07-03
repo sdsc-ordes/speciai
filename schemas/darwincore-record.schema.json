@@ -1,8 +1,8 @@
 {
   "additionalProperties": false,
-  "description": "A single specimen record, keyed by Darwin Core terms.\n\nSerialise a list of these to a flat CSV/XLSX (one row per specimen) for\nupload into Specify. Use :meth:`column_headers` to get the column order.",
+  "description": "A single specimen record, keyed by Darwin Core terms.\n\nSerialise a list of these to a flat CSV/XLSX (one row per specimen) for\nupload into Specify; ``CANONICAL_COLUMN_ORDER`` gives the column order.\nFields are declared in review-form display order (verbatim term first).",
   "properties": {
-    "catalogNumber": {
+    "verbatimIdentification": {
       "anyOf": [
         {
           "type": "string"
@@ -12,59 +12,11 @@
         }
       ],
       "default": null,
-      "description": "Unique identifier for the specimen within the collection.",
-      "title": "Catalog Number",
+      "description": "Verbatim taxonomic identification as written on the label.",
+      "title": "Verbatim Identification",
       "x-dwc-status": "standard",
-      "x-dwc-term": "catalogNumber",
-      "x-dwc-iri": "http://rs.tdwg.org/dwc/terms/catalogNumber"
-    },
-    "collectionCode": {
-      "anyOf": [
-        {
-          "type": "string"
-        },
-        {
-          "type": "null"
-        }
-      ],
-      "default": null,
-      "description": "Name/code identifying the collection.",
-      "title": "Collection Code",
-      "x-dwc-status": "standard",
-      "x-dwc-term": "collectionCode",
-      "x-dwc-iri": "http://rs.tdwg.org/dwc/terms/collectionCode"
-    },
-    "otherCatalogNumbers": {
-      "anyOf": [
-        {
-          "type": "string"
-        },
-        {
-          "type": "null"
-        }
-      ],
-      "default": null,
-      "description": "Additional catalog numbers (e.g. previous IDs).",
-      "title": "Other Catalog Numbers",
-      "x-dwc-status": "standard",
-      "x-dwc-term": "otherCatalogNumbers",
-      "x-dwc-iri": "http://rs.tdwg.org/dwc/terms/otherCatalogNumbers"
-    },
-    "preparations": {
-      "anyOf": [
-        {
-          "type": "string"
-        },
-        {
-          "type": "null"
-        }
-      ],
-      "default": null,
-      "description": "Preparation/preservation method (e.g. 'pinned', 'in ethanol').",
-      "title": "Preparations",
-      "x-dwc-status": "standard",
-      "x-dwc-term": "preparations",
-      "x-dwc-iri": "http://rs.tdwg.org/dwc/terms/preparations"
+      "x-dwc-term": "verbatimIdentification",
+      "x-dwc-iri": "http://rs.tdwg.org/dwc/terms/verbatimIdentification"
     },
     "scientificName": {
       "anyOf": [
@@ -97,6 +49,54 @@
       "x-dwc-status": "standard",
       "x-dwc-term": "scientificNameAuthorship",
       "x-dwc-iri": "http://rs.tdwg.org/dwc/terms/scientificNameAuthorship"
+    },
+    "genus": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "Taxonomic genus.",
+      "title": "Genus",
+      "x-dwc-status": "standard",
+      "x-dwc-term": "genus",
+      "x-dwc-iri": "http://rs.tdwg.org/dwc/terms/genus"
+    },
+    "specificEpithet": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "Species epithet.",
+      "title": "Specific Epithet",
+      "x-dwc-status": "standard",
+      "x-dwc-term": "specificEpithet",
+      "x-dwc-iri": "http://rs.tdwg.org/dwc/terms/specificEpithet"
+    },
+    "infraspecificEpithet": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "Subspecies / infraspecific epithet.",
+      "title": "Infraspecific Epithet",
+      "x-dwc-status": "standard",
+      "x-dwc-term": "infraspecificEpithet",
+      "x-dwc-iri": "http://rs.tdwg.org/dwc/terms/infraspecificEpithet"
     },
     "kingdom": {
       "anyOf": [
@@ -194,54 +194,6 @@
       "x-dwc-term": "tribe",
       "x-dwc-iri": "http://rs.tdwg.org/dwc/terms/tribe"
     },
-    "genus": {
-      "anyOf": [
-        {
-          "type": "string"
-        },
-        {
-          "type": "null"
-        }
-      ],
-      "default": null,
-      "description": "Taxonomic genus.",
-      "title": "Genus",
-      "x-dwc-status": "standard",
-      "x-dwc-term": "genus",
-      "x-dwc-iri": "http://rs.tdwg.org/dwc/terms/genus"
-    },
-    "specificEpithet": {
-      "anyOf": [
-        {
-          "type": "string"
-        },
-        {
-          "type": "null"
-        }
-      ],
-      "default": null,
-      "description": "Species epithet.",
-      "title": "Specific Epithet",
-      "x-dwc-status": "standard",
-      "x-dwc-term": "specificEpithet",
-      "x-dwc-iri": "http://rs.tdwg.org/dwc/terms/specificEpithet"
-    },
-    "infraspecificEpithet": {
-      "anyOf": [
-        {
-          "type": "string"
-        },
-        {
-          "type": "null"
-        }
-      ],
-      "default": null,
-      "description": "Subspecies / infraspecific epithet.",
-      "title": "Infraspecific Epithet",
-      "x-dwc-status": "standard",
-      "x-dwc-term": "infraspecificEpithet",
-      "x-dwc-iri": "http://rs.tdwg.org/dwc/terms/infraspecificEpithet"
-    },
     "taxonId": {
       "anyOf": [
         {
@@ -290,22 +242,6 @@
       "x-dwc-term": "dateIdentified",
       "x-dwc-iri": "http://rs.tdwg.org/dwc/terms/dateIdentified"
     },
-    "verbatimIdentification": {
-      "anyOf": [
-        {
-          "type": "string"
-        },
-        {
-          "type": "null"
-        }
-      ],
-      "default": null,
-      "description": "Verbatim taxonomic identification as written on the label.",
-      "title": "Verbatim Identification",
-      "x-dwc-status": "standard",
-      "x-dwc-term": "verbatimIdentification",
-      "x-dwc-iri": "http://rs.tdwg.org/dwc/terms/verbatimIdentification"
-    },
     "typeStatus": {
       "anyOf": [
         {
@@ -322,7 +258,7 @@
       "x-dwc-term": "typeStatus",
       "x-dwc-iri": "http://rs.tdwg.org/dwc/terms/typeStatus"
     },
-    "recordedBy": {
+    "verbatimEventDate": {
       "anyOf": [
         {
           "type": "string"
@@ -332,59 +268,11 @@
         }
       ],
       "default": null,
-      "description": "Collector(s) of the specimen.",
-      "title": "Recorded By",
+      "description": "Verbatim collection date as written on the label.",
+      "title": "Verbatim Event Date",
       "x-dwc-status": "standard",
-      "x-dwc-term": "recordedBy",
-      "x-dwc-iri": "http://rs.tdwg.org/dwc/terms/recordedBy"
-    },
-    "sex": {
-      "anyOf": [
-        {
-          "type": "string"
-        },
-        {
-          "type": "null"
-        }
-      ],
-      "default": null,
-      "description": "Sex of the specimen.",
-      "title": "Sex",
-      "x-dwc-status": "standard",
-      "x-dwc-term": "sex",
-      "x-dwc-iri": "http://rs.tdwg.org/dwc/terms/sex"
-    },
-    "lifeStage": {
-      "anyOf": [
-        {
-          "type": "string"
-        },
-        {
-          "type": "null"
-        }
-      ],
-      "default": null,
-      "description": "Life stage (e.g. 'adult', 'larva').",
-      "title": "Life Stage",
-      "x-dwc-status": "standard",
-      "x-dwc-term": "lifeStage",
-      "x-dwc-iri": "http://rs.tdwg.org/dwc/terms/lifeStage"
-    },
-    "organismRemarks": {
-      "anyOf": [
-        {
-          "type": "string"
-        },
-        {
-          "type": "null"
-        }
-      ],
-      "default": null,
-      "description": "Free-text remarks about the organism.",
-      "title": "Organism Remarks",
-      "x-dwc-status": "standard",
-      "x-dwc-term": "organismRemarks",
-      "x-dwc-iri": "http://rs.tdwg.org/dwc/terms/organismRemarks"
+      "x-dwc-term": "verbatimEventDate",
+      "x-dwc-iri": "http://rs.tdwg.org/dwc/terms/verbatimEventDate"
     },
     "eventDate": {
       "anyOf": [
@@ -402,7 +290,7 @@
       "x-dwc-term": "eventDate",
       "x-dwc-iri": "http://rs.tdwg.org/dwc/terms/eventDate"
     },
-    "verbatimEventDate": {
+    "recordedBy": {
       "anyOf": [
         {
           "type": "string"
@@ -412,11 +300,43 @@
         }
       ],
       "default": null,
-      "description": "Verbatim collection date as written on the label.",
-      "title": "Verbatim Event Date",
+      "description": "Collector(s) of the specimen.",
+      "title": "Recorded By",
       "x-dwc-status": "standard",
-      "x-dwc-term": "verbatimEventDate",
-      "x-dwc-iri": "http://rs.tdwg.org/dwc/terms/verbatimEventDate"
+      "x-dwc-term": "recordedBy",
+      "x-dwc-iri": "http://rs.tdwg.org/dwc/terms/recordedBy"
+    },
+    "verbatimLocality": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "Verbatim locality as written on the label.",
+      "title": "Verbatim Locality",
+      "x-dwc-status": "standard",
+      "x-dwc-term": "verbatimLocality",
+      "x-dwc-iri": "http://rs.tdwg.org/dwc/terms/verbatimLocality"
+    },
+    "locality": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "Interpreted, normalised locality description.",
+      "title": "Locality",
+      "x-dwc-status": "standard",
+      "x-dwc-term": "locality",
+      "x-dwc-iri": "http://rs.tdwg.org/dwc/terms/locality"
     },
     "continent": {
       "anyOf": [
@@ -482,7 +402,7 @@
       "x-dwc-term": "stateProvince",
       "x-dwc-iri": "http://rs.tdwg.org/dwc/terms/stateProvince"
     },
-    "locality": {
+    "verbatimCoordinates": {
       "anyOf": [
         {
           "type": "string"
@@ -492,13 +412,13 @@
         }
       ],
       "default": null,
-      "description": "Interpreted, normalised locality description.",
-      "title": "Locality",
+      "description": "Verbatim coordinates as written on the label.",
+      "title": "Verbatim Coordinates",
       "x-dwc-status": "standard",
-      "x-dwc-term": "locality",
-      "x-dwc-iri": "http://rs.tdwg.org/dwc/terms/locality"
+      "x-dwc-term": "verbatimCoordinates",
+      "x-dwc-iri": "http://rs.tdwg.org/dwc/terms/verbatimCoordinates"
     },
-    "verbatimLocality": {
+    "verbatimCoordinateSystem": {
       "anyOf": [
         {
           "type": "string"
@@ -508,11 +428,11 @@
         }
       ],
       "default": null,
-      "description": "Verbatim locality as written on the label.",
-      "title": "Verbatim Locality",
+      "description": "Coordinate system of the verbatim coordinates.",
+      "title": "Verbatim Coordinate System",
       "x-dwc-status": "standard",
-      "x-dwc-term": "verbatimLocality",
-      "x-dwc-iri": "http://rs.tdwg.org/dwc/terms/verbatimLocality"
+      "x-dwc-term": "verbatimCoordinateSystem",
+      "x-dwc-iri": "http://rs.tdwg.org/dwc/terms/verbatimCoordinateSystem"
     },
     "decimalLatitude": {
       "anyOf": [
@@ -583,7 +503,7 @@
       "x-dwc-term": "coordinateUncertaintyInMeters",
       "x-dwc-iri": "http://rs.tdwg.org/dwc/terms/coordinateUncertaintyInMeters"
     },
-    "verbatimCoordinates": {
+    "sex": {
       "anyOf": [
         {
           "type": "string"
@@ -593,13 +513,13 @@
         }
       ],
       "default": null,
-      "description": "Verbatim coordinates as written on the label.",
-      "title": "Verbatim Coordinates",
+      "description": "Sex of the specimen.",
+      "title": "Sex",
       "x-dwc-status": "standard",
-      "x-dwc-term": "verbatimCoordinates",
-      "x-dwc-iri": "http://rs.tdwg.org/dwc/terms/verbatimCoordinates"
+      "x-dwc-term": "sex",
+      "x-dwc-iri": "http://rs.tdwg.org/dwc/terms/sex"
     },
-    "verbatimCoordinateSystem": {
+    "lifeStage": {
       "anyOf": [
         {
           "type": "string"
@@ -609,11 +529,107 @@
         }
       ],
       "default": null,
-      "description": "Coordinate system of the verbatim coordinates.",
-      "title": "Verbatim Coordinate System",
+      "description": "Life stage (e.g. 'adult', 'larva').",
+      "title": "Life Stage",
       "x-dwc-status": "standard",
-      "x-dwc-term": "verbatimCoordinateSystem",
-      "x-dwc-iri": "http://rs.tdwg.org/dwc/terms/verbatimCoordinateSystem"
+      "x-dwc-term": "lifeStage",
+      "x-dwc-iri": "http://rs.tdwg.org/dwc/terms/lifeStage"
+    },
+    "organismRemarks": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "Free-text remarks about the organism.",
+      "title": "Organism Remarks",
+      "x-dwc-status": "standard",
+      "x-dwc-term": "organismRemarks",
+      "x-dwc-iri": "http://rs.tdwg.org/dwc/terms/organismRemarks"
+    },
+    "catalogNumber": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "Unique identifier for the specimen within the collection.",
+      "title": "Catalog Number",
+      "x-dwc-status": "standard",
+      "x-dwc-term": "catalogNumber",
+      "x-dwc-iri": "http://rs.tdwg.org/dwc/terms/catalogNumber"
+    },
+    "collectionCode": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "Name/code identifying the collection.",
+      "title": "Collection Code",
+      "x-dwc-status": "standard",
+      "x-dwc-term": "collectionCode",
+      "x-dwc-iri": "http://rs.tdwg.org/dwc/terms/collectionCode"
+    },
+    "otherCatalogNumbers": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "Additional catalog numbers (e.g. previous IDs).",
+      "title": "Other Catalog Numbers",
+      "x-dwc-status": "standard",
+      "x-dwc-term": "otherCatalogNumbers",
+      "x-dwc-iri": "http://rs.tdwg.org/dwc/terms/otherCatalogNumbers"
+    },
+    "preparations": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "Preparation/preservation method (e.g. 'pinned', 'in ethanol').",
+      "title": "Preparations",
+      "x-dwc-status": "standard",
+      "x-dwc-term": "preparations",
+      "x-dwc-iri": "http://rs.tdwg.org/dwc/terms/preparations"
+    },
+    "verbatimLabel": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "Full verbatim transcription of the specimen label text.",
+      "title": "Verbatim Label",
+      "x-dwc-status": "standard",
+      "x-dwc-term": "verbatimLabel",
+      "x-dwc-iri": "http://rs.tdwg.org/dwc/terms/verbatimLabel"
     },
     "associatedMedia": {
       "anyOf": [
@@ -646,22 +662,6 @@
       "x-dwc-status": "standard",
       "x-dwc-term": "associatedReferences",
       "x-dwc-iri": "http://rs.tdwg.org/dwc/terms/associatedReferences"
-    },
-    "verbatimLabel": {
-      "anyOf": [
-        {
-          "type": "string"
-        },
-        {
-          "type": "null"
-        }
-      ],
-      "default": null,
-      "description": "Full verbatim transcription of the specimen label text.",
-      "title": "Verbatim Label",
-      "x-dwc-status": "standard",
-      "x-dwc-term": "verbatimLabel",
-      "x-dwc-iri": "http://rs.tdwg.org/dwc/terms/verbatimLabel"
     }
   },
   "title": "DarwinCoreRecord",

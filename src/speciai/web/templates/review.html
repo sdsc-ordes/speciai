@@ -1,0 +1,104 @@
+{% extends "base.html" %} {% block subtitle %}Review &amp; export{% endblock %}
+{% macro field(f) %}
+<label class="field field-{{ f.role }}">
+  <span class="field-label">
+    <span class="field-name">{{ f.label }}</span>
+    {% if f.role == 'verbatim' %}<span class="badge">As read</span>{% endif %}
+    {% if f.role == 'interpreted' %}<span class="badge badge-info"
+      >Inferred</span
+    >{% endif %} {% if f.derive %}
+    <button
+      type="button"
+      class="rederive"
+      data-source="{{ f.derive }}"
+      data-field="{{ f.name }}"
+      title="Re-derive"
+      aria-label="Re-derive"
+    >
+      <svg
+        class="rederive-icon"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        stroke-width="2"
+        stroke-linecap="round"
+        stroke-linejoin="round"
+        aria-hidden="true"
+        focusable="false"
+      >
+        <polyline points="23 4 23 10 17 10" />
+        <polyline points="1 20 1 14 7 14" />
+        <path
+          d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"
+        />
+      </svg>
+    </button>
+    <span class="rederive-msg"></span>
+    {% endif %}
+  </span>
+  {% if f.type == 'number' %}
+  <input type="number" step="any" name="{{ f.name }}" value="{{ f.value }}" />
+  {% else %}
+  <input type="text" name="{{ f.name }}" value="{{ f.value }}" />
+  {% endif %} {% if f.error %}<span class="field-error">{{ f.error }}</span>{%
+  endif %}
+</label>
+{% endmacro %} {% block content %}
+<div class="section-label">
+  <span aria-hidden="true">&#9675;</span>
+  REVIEW &amp; EXPORT
+</div>
+<h1>Review record</h1>
+<p class="lead">
+  Check the record against the image, fix anything off, then export.
+</p>
+<div class="review">
+  <figure class="image-panel">
+    <img src="/jobs/{{ job_id }}/image" alt="Specimen label" />
+    <figcaption class="image-cap">Specimen label</figcaption>
+  </figure>
+  <form
+    class="record-form"
+    method="post"
+    action="/jobs/{{ job_id }}/export?format=csv"
+  >
+    <div class="record-head">
+      <div class="section-label">
+        <span aria-hidden="true">&#9675;</span>
+        SPECIMEN RECORD
+      </div>
+      <span class="badge badge-info">Darwin Core</span>
+    </div>
+    {% for group in groups %}
+    <fieldset class="field-group">
+      <legend class="group-label">{{ group.label }}</legend>
+      {% for f in group.visible %}{{ field(f) }}{% endfor %} {% if group.hidden
+      %}
+      <details class="empties">
+        <summary>
+          <span class="empties-show"
+            >Show {{ group.hidden | length }} empty field{{ '' if group.hidden |
+            length == 1 else 's' }}</span
+          ><span class="empties-hide"
+            >Hide {{ group.hidden | length }} empty field{{ '' if group.hidden |
+            length == 1 else 's' }}</span
+          >
+        </summary>
+        <div class="empties-body">
+          {% for f in group.hidden %}{{ field(f) }}{% endfor %}
+        </div>
+      </details>
+      {% endif %}
+    </fieldset>
+    {% endfor %}
+    <div class="actions">
+      <button type="submit" formaction="/jobs/{{ job_id }}/export?format=csv">
+        Export CSV
+      </button>
+      <button type="submit" formaction="/jobs/{{ job_id }}/export?format=json">
+        Export JSON
+      </button>
+    </div>
+  </form>
+</div>
+{% endblock %}

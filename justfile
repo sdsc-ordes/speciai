@@ -12,6 +12,8 @@ mod external "./tools/just/external.just"
 mod nix "./tools/just/nix.just"
 [group('modules')]
 mod sops "./tools/just/sops.just"
+[group('modules')]
+mod image "./tools/just/image.just"
 
 # Default target if you do not specify a target.
 default:
@@ -23,7 +25,7 @@ develop *args:
     just nix::develop "default" "$@"
 
 # Format the project.
-format *args: setup
+format *args:
     treefmt "$@"
 
 # Setup the project.
@@ -62,4 +64,4 @@ test *args:
 # Run an executable.
 [group('general')]
 run *args:
-    uv run speciai "$@"
+    uv run --all-groups --all-extras speciai "$@"

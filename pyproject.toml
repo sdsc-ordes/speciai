@@ -17,16 +17,44 @@ dependencies = [
     "python-dateutil>=2.9.0.post0",
     "python-doctr[torch]>=0.9.0",
     "torch>=2.12.1",
+    # Direct dep (pulled transitively by doctr) so the CPU-index source below
+    # applies -- otherwise torchvision resolves to the CUDA build and its
+    # compiled ops mismatch torch+cpu ("operator torchvision::nms does not exist").
+    "torchvision>=0.27",
     "transformers>=5.12.1",
+    "fastapi>=0.115",
+    "uvicorn[standard]>=0.30",
+    "jinja2>=3.1",
+    "python-multipart>=0.0.9",
+    "sse-starlette>=2.1",
+    "requests>=2.34.2",
 ]
 [dependency-groups]
 dev = [
     "notebook>=7.3.2",
     "pytest>=8.4.2",
+    "pytest-asyncio>=0.23",
+    "httpx>=0.27",  # required by starlette TestClient
 ]
 
 [project.scripts]
 speciai = 'speciai.cli:main'
+
+# Pull torch/torchvision from PyTorch's CPU wheel index to avoid the ~GB of CUDA
+# (nvidia-*, triton) packages the default builds bundle -- we run inference on CPU.
+# Linux/Windows use the CPU index; macOS falls back to PyPI (already CPU/MPS-only).
+[[tool.uv.index]]
+name = "pytorch-cpu"
+url = "https://download.pytorch.org/whl/cpu"
+explicit = true
+
+[tool.uv.sources]
+torch = [
+    { index = "pytorch-cpu", marker = "sys_platform == 'linux' or sys_platform == 'win32'" },
+]
+torchvision = [
+    { index = "pytorch-cpu", marker = "sys_platform == 'linux' or sys_platform == 'win32'" },
+]
 
 [build-system]
 requires = ["hatchling"]
@@ -37,6 +65,16 @@ exclude = [
     ".direnv",
     ".devenv",
     ".output",
+]
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+# Silence unactionable third-party deprecation noise so our output stays pristine:
+#  - defusedxml.cElementTree: emitted transitively at doctr import time.
+#  - starlette TestClient/httpx: emitted by Starlette's own test client.
+filterwarnings = [
+    "ignore:defusedxml.cElementTree is deprecated:DeprecationWarning",
+    "ignore:Using `httpx` with `starlette.testclient` is deprecated:Warning",
 ]
 
 [tool.ruff]

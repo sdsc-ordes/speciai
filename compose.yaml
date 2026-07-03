@@ -1,0 +1,20 @@
+services:
+  speciai:
+    build:
+      context: .
+      dockerfile: tools/images/Containerfile
+    ports:
+      - "8000:8000"
+    environment:
+      # google/gemma-4-E2B-it is licence-gated on Hugging Face; set HF_TOKEN
+      # in the environment or in a git-ignored .env file.
+      HF_TOKEN: ${HF_TOKEN:-}
+    volumes:
+      # Specimen images / exports shared with the host (git-ignored).
+      - ./data:/app/data
+      # Model caches (Hugging Face + doctr): downloaded once, kept across recreates.
+      - models:/root/.cache
+    restart: unless-stopped
+
+volumes:
+  models:
