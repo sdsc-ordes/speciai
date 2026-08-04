@@ -19,6 +19,9 @@ import re
 from pydantic import BaseModel
 
 from speciai.ocr import OCRResult
+from openai import OpenAI
+
+from abc import ABC, abstractmethod
 
 # Buckets the classifier fills. Names match what ``speciai.enrich`` consumes.
 LABELS = [
@@ -146,12 +149,7 @@ def _to_classified_record(raw: dict) -> ClassifiedRecord:
         ),
     )
 
-
-def classify_text(processor, model, full_text: str, target_labels: list[str]) -> dict:
-    """Classify ``full_text`` into ``target_labels`` with the LLM.
-
-    Returns an empty dict when the model does not produce a valid JSON object.
-    """
+def create_llm_messages(target_labels: str, full_text: str) -> str:
     labels = ", ".join(target_labels)
     messages = [
         {
@@ -166,6 +164,15 @@ def classify_text(processor, model, full_text: str, target_labels: list[str]) ->
         },
         {"role": "user", "content": full_text},
     ]
+
+    return messages
+
+def classify_text(processor, model, full_text: str, target_labels: list[str]) -> dict:
+    """Classify ``full_text`` into ``target_labels`` with the LLM.
+
+    Returns an empty dict when the model does not produce a valid JSON object.
+    """
+    messages = create_llm_messages(target_labels, full_text)
     text = processor.apply_chat_template(
         messages, tokenize=False, add_generation_prompt=True, enable_thinking=False
     )
@@ -179,7 +186,44 @@ def classify_text(processor, model, full_text: str, target_labels: list[str]) ->
     return result if isinstance(result, dict) else {}
 
 
-class Classifier:
+class Classifier(ABC):
+    @abstractmethod
+    def run(self, ocr: OCRResult) -> ClassifiedRecord:
+        # Classify the OCR results
+        pass
+
+class ExternalClassifier:
+    def __init__(self, base_url: str, model_id: str, api_key: str):
+        self.model_id = model_id
+        self.client = OpenAI(base_url=base_url, api_key=api_key)
+
+    def _classify_text(self, full_text: str, target_labels: list[str]) -> dict:
+        """
+        Call the LLM and classify the data per target label.
+        """
+        messages = create_llm_messages(target_labels, full_text)
+        completion = self.client.chat.completions.create(
+            model=self.model_id,
+            messages=messages,
+            max_tokens=1024,
+            temperature=0.0,
+            extra_body={"chat_template_kwargs": {"enable_thinking": False}},
+        )
+        result = extract_json_from_llm_response(completion.choices[0].message.content)
+
+        return result if isinstance(result, dict) else {}
+
+    def run(self, ocr: OCRResult) -> ClassifiedRecord:
+        """Bucket one OCR result: rule-extract, LLM-classify the rest, assemble."""
+        full_text = combine_ocr_labels(ocr)
+        extracted, remaining = apply_rules(full_text)
+        target_labels = [label for label in LABELS if label not in extracted]
+        raw = self._classify_text(remaining, target_labels)
+        raw.update(extracted)
+
+        return _to_classified_record(raw)
+
+class LocalClassifier:
     """Loads the classification LLM once and buckets OCR text into records.
 
     The model download/load is expensive, so build this once and reuse it (the
@@ -207,4 +251,5 @@ class Classifier:
         target_labels = [label for label in LABELS if label not in extracted]
         raw = classify_text(self._processor, self._model, remaining, target_labels)
         raw.update(extracted)
+
         return _to_classified_record(raw)

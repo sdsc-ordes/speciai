@@ -1,8 +1,11 @@
 import argparse
 import json
+import os
+
+from dotenv import load_dotenv
 from pathlib import Path
 
-from speciai.classify import Classifier, ClassifiedRecord
+from speciai.classify import ExternalClassifier, LocalClassifier, ClassifiedRecord
 from speciai.enrich import enrich_record
 from speciai.ocr import OCREngine, OCRResult
 
@@ -15,7 +18,12 @@ def _cmd_ocr(args: argparse.Namespace) -> None:
 
 
 def _cmd_classify(args: argparse.Namespace) -> None:
-    classifier = Classifier()
+    if args.llm_base_url != "":
+        load_dotenv()
+        api_key = os.getenv("LLM_API_KEY")
+        classifier = ExternalClassifier(base_url=args.llm_base_url, model_id=args.model, api_key=api_key)
+    else:
+        classifier = LocalClassifier()
     for ocr_path in args.ocr_results:
         ocr_result = OCRResult.model_validate_json(ocr_path.read_text())
         classified = classifier.run(ocr_result)
@@ -52,6 +60,8 @@ def main() -> None:
         "classify", help="Classify OCR'd label text into Darwin Core buckets."
     )
     classify.add_argument("ocr_results", nargs="+", type=Path, metavar="OCR_JSON")
+    classify.add_argument("--llm_base_url", default="")
+    classify.add_argument("--model", default="google/gemma-4-E2B-it")
     classify.set_defaults(func=_cmd_classify)
 
     enrich = subparsers.add_parser(
