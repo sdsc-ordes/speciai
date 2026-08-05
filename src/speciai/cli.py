@@ -2,10 +2,9 @@ import argparse
 import json
 import os
 
-from dotenv import load_dotenv
 from pathlib import Path
 
-from speciai.classify import ExternalClassifier, LocalClassifier, ClassifiedRecord
+from speciai.classify import ClassifiedRecord, build_classifier
 from speciai.enrich import enrich_record
 from speciai.ocr import OCREngine, OCRResult
 
@@ -18,12 +17,8 @@ def _cmd_ocr(args: argparse.Namespace) -> None:
 
 
 def _cmd_classify(args: argparse.Namespace) -> None:
-    if args.llm_base_url != "":
-        load_dotenv()
-        api_key = os.getenv("LLM_API_KEY")
-        classifier = ExternalClassifier(base_url=args.llm_base_url, model_id=args.model, api_key=api_key)
-    else:
-        classifier = LocalClassifier()
+    classifier = build_classifier(base_url=args.llm_base_url, model_id=args.model, api_key=os.getenv("LLM_API_KEY"))
+
     for ocr_path in args.ocr_results:
         ocr_result = OCRResult.model_validate_json(ocr_path.read_text())
         classified = classifier.run(ocr_result)

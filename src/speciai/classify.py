@@ -185,6 +185,12 @@ def classify_text(processor, model, full_text: str, target_labels: list[str]) ->
     result = extract_json_from_llm_response(parsed)
     return result if isinstance(result, dict) else {}
 
+def build_classifier(base_url:str = "", model_id: str = MODEL_ID, api_key:str = "") -> Classifier:
+    if base_url != "":
+        return ExternalClassifier(base_url=base_url, model_id=model_id, api_key=api_key)
+
+    return LocalClassifier()
+
 
 class Classifier(ABC):
     @abstractmethod
