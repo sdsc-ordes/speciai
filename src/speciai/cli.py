@@ -37,9 +37,9 @@ def _cmd_enrich(args: argparse.Namespace) -> None:
 def _cmd_serve(args: argparse.Namespace) -> None:
     import uvicorn  # noqa: PLC0415
 
-    load_dotenv()
     from speciai.web.app import create_app  # noqa: PLC0415
 
+    load_dotenv()
     app = create_app(
         llm_base_url = args.llm_base_url,
         model_id = args.model,
