@@ -16,7 +16,7 @@ from fastapi import FastAPI
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 
-from speciai.classify import Classifier
+from speciai.classify import Classifier, MODEL_ID, build_classifier
 from speciai.ocr import OCREngine
 from speciai.web.jobs import JobRegistry
 from speciai.web.routes import router
@@ -29,6 +29,9 @@ _STATIC_DIR = _WEB_DIR / "static"
 def create_app(
     engine: OCREngine | None = None,
     classifier: Classifier | None = None,
+    llm_base_url: str = "",
+    model_id: str = MODEL_ID,
+    api_key: str | None = None,
 ) -> FastAPI:
     """Build the FastAPI app.
 
@@ -44,7 +47,8 @@ def create_app(
     async def lifespan(app: FastAPI):
         # Both models are slow to load and independent: load them concurrently.
         app.state.engine, app.state.classifier = await asyncio.gather(
-            _provide(engine, OCREngine), _provide(classifier, Classifier)
+            _provide(engine, OCREngine),
+            _provide(classifier, lambda: build_classifier(base_url=llm_base_url, model_id=model_id, api_key=api_key))
         )
         app.state.jobs = JobRegistry()
         # Scratch dir for uploaded images, removed deterministically on shutdown.

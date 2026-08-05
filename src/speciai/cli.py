@@ -3,6 +3,7 @@ import json
 import os
 
 from pathlib import Path
+from dotenv import load_dotenv
 
 from speciai.classify import ClassifiedRecord, build_classifier
 from speciai.enrich import enrich_record
@@ -17,6 +18,7 @@ def _cmd_ocr(args: argparse.Namespace) -> None:
 
 
 def _cmd_classify(args: argparse.Namespace) -> None:
+    load_dotenv()
     classifier = build_classifier(base_url=args.llm_base_url, model_id=args.model, api_key=os.getenv("LLM_API_KEY"))
 
     for ocr_path in args.ocr_results:
@@ -35,9 +37,15 @@ def _cmd_enrich(args: argparse.Namespace) -> None:
 def _cmd_serve(args: argparse.Namespace) -> None:
     import uvicorn  # noqa: PLC0415
 
+    load_dotenv()
     from speciai.web.app import create_app  # noqa: PLC0415
 
-    uvicorn.run(create_app(), host=args.host, port=args.port)
+    app = create_app(
+        llm_base_url = args.llm_base_url,
+        model_id = args.model,
+        api_key = os.getenv("LLM_API_KEY"),
+    )
+    uvicorn.run(app, host=args.host, port=args.port)
 
 
 def main() -> None:
@@ -68,6 +76,8 @@ def main() -> None:
     serve = subparsers.add_parser("serve", help="Run the review web server.")
     serve.add_argument("--host", default="127.0.0.1")
     serve.add_argument("--port", type=int, default=8000)
+    serve.add_argument("--llm_base_url", default="")
+    serve.add_argument("--model", default="google/gemma-4-E2B-it")
     serve.set_defaults(func=_cmd_serve)
 
     args = parser.parse_args()
