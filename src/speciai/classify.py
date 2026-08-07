@@ -21,7 +21,8 @@ from pydantic import BaseModel
 from speciai.ocr import OCRResult
 from openai import OpenAI
 
-from abc import ABC, abstractmethod
+from typing import Protocol
+
 
 # Buckets the classifier fills. Names match what ``speciai.enrich`` consumes.
 LABELS = [
@@ -192,13 +193,12 @@ def build_classifier(base_url:str = "", model_id: str = MODEL_ID, api_key:str = 
     return LocalClassifier(model_id)
 
 
-class Classifier(ABC):
-    @abstractmethod
+class Classifier(Protocol):
     def run(self, ocr: OCRResult) -> ClassifiedRecord:
-        # Classify the OCR results
-        pass
+        """Classify the OCR results."""
+        ...
 
-class ExternalClassifier(Classifier):
+class ExternalClassifier:
     def __init__(self, base_url: str, model_id: str, api_key: str):
         self.model_id = model_id
         self.client = OpenAI(base_url=base_url, api_key=api_key)
@@ -229,7 +229,7 @@ class ExternalClassifier(Classifier):
 
         return _to_classified_record(raw)
 
-class LocalClassifier(Classifier):
+class LocalClassifier:
     """Loads the classification LLM once and buckets OCR text into records.
 
     The model download/load is expensive, so build this once and reuse it (the
