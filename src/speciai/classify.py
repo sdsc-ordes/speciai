@@ -189,7 +189,7 @@ def build_classifier(base_url:str = "", model_id: str = MODEL_ID, api_key:str = 
     if base_url != "":
         return ExternalClassifier(base_url=base_url, model_id=model_id, api_key=api_key)
 
-    return LocalClassifier()
+    return LocalClassifier(model_id)
 
 
 class Classifier(ABC):
@@ -198,7 +198,7 @@ class Classifier(ABC):
         # Classify the OCR results
         pass
 
-class ExternalClassifier:
+class ExternalClassifier(Classifier):
     def __init__(self, base_url: str, model_id: str, api_key: str):
         self.model_id = model_id
         self.client = OpenAI(base_url=base_url, api_key=api_key)
@@ -229,7 +229,7 @@ class ExternalClassifier:
 
         return _to_classified_record(raw)
 
-class LocalClassifier:
+class LocalClassifier(Classifier):
     """Loads the classification LLM once and buckets OCR text into records.
 
     The model download/load is expensive, so build this once and reuse it (the

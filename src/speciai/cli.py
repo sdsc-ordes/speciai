@@ -63,7 +63,7 @@ def main() -> None:
         "classify", help="Classify OCR'd label text into Darwin Core buckets."
     )
     classify.add_argument("ocr_results", nargs="+", type=Path, metavar="OCR_JSON")
-    classify.add_argument("--llm_base_url", default="")
+    classify.add_argument("--llm-base-url", default="")
     classify.add_argument("--model", default="google/gemma-4-E2B-it")
     classify.set_defaults(func=_cmd_classify)
 
@@ -76,7 +76,7 @@ def main() -> None:
     serve = subparsers.add_parser("serve", help="Run the review web server.")
     serve.add_argument("--host", default="127.0.0.1")
     serve.add_argument("--port", type=int, default=8000)
-    serve.add_argument("--llm_base_url", default="")
+    serve.add_argument("--llm-base-url", default="")
     serve.add_argument("--model", default="google/gemma-4-E2B-it")
     serve.set_defaults(func=_cmd_serve)
 
