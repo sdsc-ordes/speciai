@@ -40,7 +40,7 @@ flowchart TD
     EXPORT[Export]
 
     DOCTR{{doctr}}
-    GEMMA{{"Gemma 4 / fine-tuned BERT"}}
+    GEMMA{{"Gemma 4 (local) or external OpenAI-compatible LLM"}}
     ENRICHTECH{{"Nominatim · Wikidata · pygbif · dateutils"}}
     FORM{{"Interactive pre-filled form"}}
 
@@ -68,7 +68,7 @@ flowchart TD
 | #   | Stage          | Tool / model                             | Output                                    |
 | --- | -------------- | ---------------------------------------- | ----------------------------------------- |
 | 1   | OCR            | `doctr`                                  | Hierarchical JSON preserving label layout |
-| 2   | Classification | Gemma 4-E2B-it                           | Darwin Core–keyed JSON                    |
+| 2   | Classification | Gemma 4-E2B-it (local) or external LLM   | Darwin Core–keyed JSON                    |
 | 3   | Enrichment     | Nominatim, Wikidata, pygbif, `dateutils` | Normalised field values                   |
 | 4   | Human review   | Interactive pre-filled form              | Confirmed / edited record                 |
 
@@ -88,6 +88,21 @@ flowchart TD
 - [x] Identify relevant sources for enrichment.
 - [ ] Should we use a workflow manager (metaflow, temporal) to connect steps.
 
+## Classification model
+
+The `classify` and `serve` commands run field classification against either the
+local Gemma model (default) or an external OpenAI-compatible LLM endpoint:
+
+    uv run speciai classify --llm_base_url https://api.openai.com/v1 --model gpt-4o-mini ocr.json
+
+- `--llm_base_url`: base URL of an OpenAI-compatible chat-completions API. Leave
+  unset (default) to load Gemma locally instead.
+- `--model`: model id to request. Defaults to the local Gemma model id
+  (`google/gemma-4-E2B-it`); set it to the external provider's model id when
+  `--llm_base_url` is set.
+- `LLM_API_KEY` (env var, loaded from `.env`): API key sent to the external
+  endpoint. Not needed for the local model.
+
 ## Web review UI
 
 Install the web extras and start the server:
@@ -95,9 +110,14 @@ Install the web extras and start the server:
     uv sync --group web
     just run serve                  # or: uv run speciai serve --host 127.0.0.1 --port 8000
 
+`serve` accepts the same `--llm_base_url` / `--model` options as `classify` (see
+[Classification model](#classification-model)) to use an external LLM instead of
+loading Gemma locally.
+
 Or run it in a container (image: `tools/images/Containerfile`); `./data` is
-mounted at `/app/data` and model caches persist in a named volume. The Gemma
-model is licence-gated, so export `HF_TOKEN` (or put it in `.env`) first:
+mounted at `/app/data` and model caches persist in a named volume. When using
+the local Gemma model, it is licence-gated, so export `HF_TOKEN` (or put it in
+`.env`) first:
 
     docker compose up             # or: podman compose up / just image::serve
 

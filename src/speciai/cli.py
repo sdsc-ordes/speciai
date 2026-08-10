@@ -1,8 +1,11 @@
 import argparse
 import json
-from pathlib import Path
+import os
 
-from speciai.classify import Classifier, ClassifiedRecord
+from pathlib import Path
+from dotenv import load_dotenv
+
+from speciai.classify import ClassifiedRecord, build_classifier
 from speciai.enrich import enrich_record
 from speciai.ocr import OCREngine, OCRResult
 
@@ -15,7 +18,9 @@ def _cmd_ocr(args: argparse.Namespace) -> None:
 
 
 def _cmd_classify(args: argparse.Namespace) -> None:
-    classifier = Classifier()
+    load_dotenv()
+    classifier = build_classifier(base_url=args.llm_base_url, model_id=args.model, api_key=os.getenv("LLM_API_KEY"))
+
     for ocr_path in args.ocr_results:
         ocr_result = OCRResult.model_validate_json(ocr_path.read_text())
         classified = classifier.run(ocr_result)
@@ -34,7 +39,13 @@ def _cmd_serve(args: argparse.Namespace) -> None:
 
     from speciai.web.app import create_app  # noqa: PLC0415
 
-    uvicorn.run(create_app(), host=args.host, port=args.port)
+    load_dotenv()
+    app = create_app(
+        llm_base_url = args.llm_base_url,
+        model_id = args.model,
+        api_key = os.getenv("LLM_API_KEY"),
+    )
+    uvicorn.run(app, host=args.host, port=args.port)
 
 
 def main() -> None:
@@ -52,6 +63,8 @@ def main() -> None:
         "classify", help="Classify OCR'd label text into Darwin Core buckets."
     )
     classify.add_argument("ocr_results", nargs="+", type=Path, metavar="OCR_JSON")
+    classify.add_argument("--llm-base-url", default="")
+    classify.add_argument("--model", default="google/gemma-4-E2B-it")
     classify.set_defaults(func=_cmd_classify)
 
     enrich = subparsers.add_parser(
@@ -63,6 +76,8 @@ def main() -> None:
     serve = subparsers.add_parser("serve", help="Run the review web server.")
     serve.add_argument("--host", default="127.0.0.1")
     serve.add_argument("--port", type=int, default=8000)
+    serve.add_argument("--llm-base-url", default="")
+    serve.add_argument("--model", default="google/gemma-4-E2B-it")
     serve.set_defaults(func=_cmd_serve)
 
     args = parser.parse_args()
