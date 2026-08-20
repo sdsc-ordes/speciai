@@ -38,6 +38,14 @@
   </span>
   {% if f.type == 'number' %}
   <input type="number" step="any" name="{{ f.name }}" value="{{ f.value }}" />
+  {% elif f.type == 'select' %}
+  <!-- prettier-ignore -->
+  <select name="{{ f.name }}">
+    <option value="" {% if not f.value %}selected{% endif %}></option>
+    {% for opt in f.options %}
+    <option value="{{ opt }}" {% if f.value == opt %}selected{% endif %}>{{ opt }}</option>
+    {% endfor %}
+  </select>
   {% else %}
   <input type="text" name="{{ f.name }}" value="{{ f.value }}" />
   {% endif %} {% if f.error %}<span class="field-error">{{ f.error }}</span>{%

@@ -6,15 +6,12 @@ services:
     ports:
       - "8000:8000"
     environment:
-      # google/gemma-4-E2B-it is licence-gated on Hugging Face; set HF_TOKEN
-      # in the environment or in a git-ignored .env file.
-      HF_TOKEN: ${HF_TOKEN:-}
+      # OpenAI-compatible endpoint serving a multimodal model. Set these in the
+      # environment or in a git-ignored .env file.
+      LLM_BASE_URL: ${LLM_BASE_URL:?set it to an OpenAI-compatible endpoint}
+      LLM_MODEL: ${LLM_MODEL:?set it to the model id the endpoint serves}
+      LLM_API_KEY: ${LLM_API_KEY:-}
     volumes:
       # Specimen images / exports shared with the host (git-ignored).
       - ./data:/app/data
-      # Model caches (Hugging Face + doctr): downloaded once, kept across recreates.
-      - models:/root/.cache
     restart: unless-stopped
-
-volumes:
-  models:

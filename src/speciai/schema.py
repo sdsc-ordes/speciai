@@ -9,11 +9,11 @@ expected column headers. All are Darwin Core terms (https://dwc.tdwg.org/);
 casing exceptions live in ``_ALIASES``.
 
 Conventions:
-  * Every field is optional. OCR + classification frequently miss fields; the
+  * Every field is optional. Extraction frequently misses fields; the
     human-review stage fills the gaps.
   * Fields are flat and named after Darwin Core terms so the column headers map
     straight into Specify's WorkBench AutoMapper.
-  * ``verbatim*`` terms hold the raw OCR / classified value; their interpreted
+  * ``verbatim*`` terms hold the raw extracted value; their interpreted
     counterparts hold the enriched / normalised value. The enrichment stage must
     never overwrite a verbatim term.
   * The model, ``CANONICAL_COLUMN_ORDER`` (CSV column order) and ``FIELD_GROUPS``
@@ -23,8 +23,13 @@ Conventions:
 """
 
 import re
+from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field
+
+_ISO_DATE = r"\d{4}(?:-\d{2}(?:-\d{2})?)?"
+ISO_DATE_PATTERN = rf"^{_ISO_DATE}(?:/{_ISO_DATE})?$"
+SEX_VALUES = ("Female", "Male")
 
 
 class DarwinCoreRecord(BaseModel):
@@ -70,7 +75,9 @@ class DarwinCoreRecord(BaseModel):
         default=None, description="Person(s) who determined the taxon."
     )
     dateIdentified: str | None = Field(
-        default=None, description="Date of determination (ISO 8601; may be partial)."
+        default=None,
+        pattern=ISO_DATE_PATTERN,
+        description="Date of determination (ISO 8601; may be partial).",
     )
     typeStatus: str | None = Field(
         default=None, description="Nomenclatural type status (e.g. 'holotype')."
@@ -82,6 +89,7 @@ class DarwinCoreRecord(BaseModel):
     )
     eventDate: str | None = Field(
         default=None,
+        pattern=ISO_DATE_PATTERN,
         description="Interpreted collection date (ISO 8601; may be partial or a range).",
     )
     recordedBy: str | None = Field(
@@ -125,7 +133,9 @@ class DarwinCoreRecord(BaseModel):
     )
 
     # --- Organism ---
-    sex: str | None = Field(default=None, description="Sex of the specimen.")
+    sex: Literal[SEX_VALUES] | None = Field(
+        default=None, description="Sex of the specimen."
+    )
     lifeStage: str | None = Field(
         default=None, description="Life stage (e.g. 'adult', 'larva')."
     )

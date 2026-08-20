@@ -16,8 +16,7 @@ from dataclasses import dataclass, field
 from enum import Enum
 from pathlib import Path
 
-from speciai.classify import Classifier
-from speciai.ocr import OCREngine
+from speciai.extract import Extractor
 from speciai.pipeline import Stage, StageEvent
 from speciai.pipeline import run as pipeline_run
 from speciai.schema import DarwinCoreRecord
@@ -60,7 +59,7 @@ class JobRegistry:
         return self._jobs.get(job_id)
 
 
-async def run_job(job: Job, engine: OCREngine, classifier: Classifier) -> None:
+async def run_job(job: Job, extractor: Extractor) -> None:
     """Run the pipeline for ``job`` on a worker thread, streaming events.
 
     Always emits a terminal ``None`` on the queue so the SSE consumer stops,
@@ -87,7 +86,7 @@ async def run_job(job: Job, engine: OCREngine, classifier: Classifier) -> None:
         # Set job state from the worker thread; the coroutine only reads `job`
         # again after the thread joins, so plain attribute writes are safe.
         try:
-            job.record = pipeline_run(job.image_path, engine, classifier, on_event)
+            job.record = pipeline_run(job.image_path, extractor, on_event)
             job.status = JobStatus.DONE
         except Exception as exc:  # boundary: turn any failure into job state
             job.status = JobStatus.ERROR

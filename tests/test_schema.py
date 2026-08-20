@@ -1,7 +1,15 @@
-"""Guard the committed JSON Schema and the field-list consistency invariants."""
+"""Guard the committed JSON Schema, the field-list invariants and field constraints."""
+
+import pytest
+from pydantic import ValidationError
 
 from speciai.generate_schema import SCHEMA_PATH, schema_json_text
-from speciai.schema import CANONICAL_COLUMN_ORDER, FIELD_GROUPS, DarwinCoreRecord
+from speciai.schema import (
+    CANONICAL_COLUMN_ORDER,
+    FIELD_GROUPS,
+    SEX_VALUES,
+    DarwinCoreRecord,
+)
 
 
 def test_committed_schema_is_up_to_date():
@@ -23,3 +31,32 @@ def test_field_groups_cover_every_field_once():
     ]
     assert set(grouped) == set(DarwinCoreRecord.model_fields)
     assert len(grouped) == len(DarwinCoreRecord.model_fields)  # no dup / missing
+
+
+@pytest.mark.parametrize("value", SEX_VALUES)
+def test_sex_accepts_the_controlled_vocabulary(value):
+    assert DarwinCoreRecord(sex=value).sex == value
+
+
+@pytest.mark.parametrize("value", ["male", "worker", "m", "unknown"])
+def test_sex_rejects_values_outside_the_vocabulary(value):
+    with pytest.raises(ValidationError):
+        DarwinCoreRecord(sex=value)
+
+
+@pytest.mark.parametrize(
+    "value", ["1987", "1987-05", "1987-05-02", "1987-05/1987-06", "1987/1988"]
+)
+def test_dates_accept_iso_full_partial_and_interval(value):
+    # Darwin Core allows partial dates and ranges; labels are routinely year-only.
+    record = DarwinCoreRecord(eventDate=value, dateIdentified=value)
+    assert record.eventDate == value
+    assert record.dateIdentified == value
+
+
+@pytest.mark.parametrize(
+    "value", ["12 May 1987", "1987-05-02T00:00:00", "05/1987", "1987-5", "circa 1987"]
+)
+def test_dates_reject_non_iso_values(value):
+    with pytest.raises(ValidationError):
+        DarwinCoreRecord(eventDate=value)

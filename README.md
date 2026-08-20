@@ -26,31 +26,27 @@ structured [Darwin Core](https://dwc.tdwg.org/) records.
 ```mermaid
 flowchart TD
     IMG(["Specimen image"])
-    LAYOUT(["Layout-aware JSON"])
     DWC(["Darwin Core JSON"])
     ENRICHED(["Enriched JSON"])
     VALID(["Validated JSON"])
     CSV(["CSV"])
     JSONOUT(["JSON"])
 
-    OCR[OCR]
-    CLASSIFY[Field classification]
+    EXTRACT[Field extraction]
     ENRICH[Enrichment]
     REVIEW[Human review and corrections]
     EXPORT[Export]
 
-    DOCTR{{doctr}}
-    GEMMA{{"Gemma 4 (local) or external OpenAI-compatible LLM"}}
-    ENRICHTECH{{"Nominatim · Wikidata · pygbif · dateutils"}}
+    LLM{{"Multimodal LLM via an OpenAI-compatible endpoint"}}
+    ENRICHTECH{{"Nominatim (geopy) · GBIF species match"}}
     FORM{{"Interactive pre-filled form"}}
 
-    IMG --> OCR --> LAYOUT --> CLASSIFY --> DWC --> ENRICH --> ENRICHED --> REVIEW --> VALID --> EXPORT
+    IMG --> EXTRACT --> DWC --> ENRICH --> ENRICHED --> REVIEW --> VALID --> EXPORT
     EXPORT --> CSV
     EXPORT --> JSONOUT
     REVIEW -->|corrections| ENRICH
 
-    OCR -.- DOCTR
-    CLASSIFY -.- GEMMA
+    EXTRACT -.- LLM
     ENRICH -.- ENRICHTECH
     REVIEW -.- FORM
 
@@ -58,19 +54,18 @@ flowchart TD
     classDef proc fill:#fff4e6,stroke:#e8590c,color:#1a1a1a;
     classDef tech fill:none,stroke:#868e96,stroke-dasharray: 3 3,color:#495057;
 
-    class IMG,LAYOUT,DWC,ENRICHED,VALID,CSV,JSONOUT data;
-    class OCR,CLASSIFY,ENRICH,REVIEW,EXPORT proc;
-    class DOCTR,GEMMA,ENRICHTECH,FORM tech;
+    class IMG,DWC,ENRICHED,VALID,CSV,JSONOUT data;
+    class EXTRACT,ENRICH,REVIEW,EXPORT proc;
+    class LLM,ENRICHTECH,FORM tech;
 ```
 
 ## Stages
 
-| #   | Stage          | Tool / model                             | Output                                    |
-| --- | -------------- | ---------------------------------------- | ----------------------------------------- |
-| 1   | OCR            | `doctr`                                  | Hierarchical JSON preserving label layout |
-| 2   | Classification | Gemma 4-E2B-it (local) or external LLM   | Darwin Core–keyed JSON                    |
-| 3   | Enrichment     | Nominatim, Wikidata, pygbif, `dateutils` | Normalised field values                   |
-| 4   | Human review   | Interactive pre-filled form              | Confirmed / edited record                 |
+| #   | Stage        | Tool / model                           | Output                    |
+| --- | ------------ | -------------------------------------- | ------------------------- |
+| 1   | Extraction   | Multimodal LLM (OpenAI-compatible API) | Darwin Core–keyed JSON    |
+| 2   | Enrichment   | Nominatim (geopy), GBIF species match  | Authority-resolved values |
+| 3   | Human review | Interactive pre-filled form            | Confirmed / edited record |
 
 ## Infrastructure
 
@@ -88,48 +83,47 @@ flowchart TD
 - [x] Identify relevant sources for enrichment.
 - [ ] Should we use a workflow manager (metaflow, temporal) to connect steps.
 
-## Classification model
+## Extraction model
 
-The `classify` and `serve` commands run field classification against either the
-local Gemma model (default) or an external OpenAI-compatible LLM endpoint:
+The `extract` and `serve` commands read specimen images through an
+OpenAI-compatible chat-completions endpoint. The model must be multimodal -- it
+reads the label pixels directly, with no OCR step. There is no in-process model:
+to run one locally, serve it yourself (vLLM, llama.cpp, Ollama) and point
+`--llm-base-url` at it.
 
-    uv run speciai classify --llm_base_url https://api.openai.com/v1 --model gpt-4o-mini ocr.json
+    uv run speciai extract --llm-base-url https://api.openai.com/v1 --model gpt-4o-mini specimen.jpg
 
-- `--llm_base_url`: base URL of an OpenAI-compatible chat-completions API. Leave
-  unset (default) to load Gemma locally instead.
-- `--model`: model id to request. Defaults to the local Gemma model id
-  (`google/gemma-4-E2B-it`); set it to the external provider's model id when
-  `--llm_base_url` is set.
-- `LLM_API_KEY` (env var, loaded from `.env`): API key sent to the external
-  endpoint. Not needed for the local model.
+- `--llm-base-url` (required): base URL of the endpoint, e.g.
+  `http://localhost:8000/v1` for a locally served model.
+- `--model` (required): model id the endpoint serves.
+- `LLM_API_KEY` (env var, loaded from `.env`): API key sent to the endpoint.
 
 ## Web review UI
 
-Install the web extras and start the server:
+Install the dependencies and start the server:
 
-    uv sync --group web
-    just run serve                  # or: uv run speciai serve --host 127.0.0.1 --port 8000
+    uv sync
+    just run serve --llm-base-url http://localhost:8000/v1 --model MODEL_ID
 
-`serve` accepts the same `--llm_base_url` / `--model` options as `classify` (see
-[Classification model](#classification-model)) to use an external LLM instead of
-loading Gemma locally.
+`serve` requires the same `--llm-base-url` / `--model` options as `extract` (see
+[Extraction model](#extraction-model)).
 
 Or run it in a container (image: `tools/images/Containerfile`); `./data` is
-mounted at `/app/data` and model caches persist in a named volume. When using
-the local Gemma model, it is licence-gated, so export `HF_TOKEN` (or put it in
-`.env`) first:
+mounted at `/app/data`. Compose reads `LLM_BASE_URL`, `LLM_MODEL` and
+`LLM_API_KEY` from the environment or a git-ignored `.env`, and fails fast if
+the first two are unset:
 
     docker compose up             # or: podman compose up / just image::serve
 
-Open http://127.0.0.1:8000, choose a specimen image, watch it go through OCR ->
-classify -> enrich, review the Darwin Core record beside the image, and export
-it as a CSV or JSON.
+Open http://127.0.0.1:8000, choose a specimen image, watch it go through extract
+-> enrich, review the Darwin Core record beside the image, and export it as a
+CSV or JSON.
 
 Workflow:
 
 1. **Upload**: Drag or choose an image on the start page.
-2. **Progress**: The browser streams live stage updates (OCR, classify, enrich)
-   via Server-Sent Events. You can leave the page and return.
+2. **Progress**: The browser streams live stage updates (extract, enrich) via
+   Server-Sent Events. You can leave the page and return.
 3. **Review**: Shows the original image alongside the pre-filled Darwin Core
    form. Edit any field before exporting.
 4. **Export**: "Export CSV" downloads a Specify-WorkBench-compatible file whose

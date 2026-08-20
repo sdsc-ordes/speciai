@@ -9,10 +9,10 @@ from types import SimpleNamespace
 
 import speciai.pipeline as pipeline_mod
 import speciai.web.routes as routes_mod
-from fakes import FakeClassifier, StaticEngine
+from fakes import FakeExtractor
 from fastapi import FastAPI
 from speciai.pipeline import Stage
-from speciai.schema import DarwinCoreRecord
+from speciai.schema import SEX_VALUES, DarwinCoreRecord
 from speciai.web.jobs import JobStatus
 from speciai.web.routes import MAX_UPLOAD_BYTES
 from starlette.testclient import TestClient
@@ -20,21 +20,14 @@ from starlette.testclient import TestClient
 from speciai.web.app import create_app
 
 
-class _FakeEngine:
-    def run(self, image_path):  # pragma: no cover - not called in this test
-        raise AssertionError("engine should not run here")
-
-
-def test_create_app_injects_engine_and_registry():
-    fake_engine = _FakeEngine()
-    fake_classifier = FakeClassifier()
-    app = create_app(engine=fake_engine, classifier=fake_classifier)
+def test_create_app_injects_extractor_and_registry():
+    fake_extractor = FakeExtractor()
+    app = create_app(extractor=fake_extractor)
     assert isinstance(app, FastAPI)
     # State is populated lazily on startup; exercise via TestClient lifespan.
     with TestClient(app) as client:
-        # The injected models must be the ones used (not freshly built ones).
-        assert client.app.state.engine is fake_engine
-        assert client.app.state.classifier is fake_classifier
+        # The injected model must be the one used (not a freshly built one).
+        assert client.app.state.extractor is fake_extractor
         assert client.app.state.jobs is not None
 
 
@@ -46,7 +39,7 @@ def _png_bytes() -> bytes:
 
 
 def test_start_page_renders():
-    app = create_app(engine=_FakeEngine(), classifier=FakeClassifier())
+    app = create_app(extractor=FakeExtractor())
     with TestClient(app) as client:
         resp = client.get("/")
     assert resp.status_code == HTTPStatus.OK
@@ -55,11 +48,11 @@ def test_start_page_renders():
 
 def test_post_jobs_creates_job_and_redirects(monkeypatch):
     # Stub the runner so no real pipeline/thread runs during the request test.
-    async def fake_run_job(job, engine, classifier):
+    async def fake_run_job(job, extractor):
         return None
 
     monkeypatch.setattr(routes_mod, "run_job", fake_run_job)
-    app = create_app(engine=_FakeEngine(), classifier=FakeClassifier())
+    app = create_app(extractor=FakeExtractor())
     with TestClient(app) as client:
         resp = client.post(
             "/jobs",
@@ -71,7 +64,7 @@ def test_post_jobs_creates_job_and_redirects(monkeypatch):
 
 
 def test_post_jobs_rejects_non_image():
-    app = create_app(engine=_FakeEngine(), classifier=FakeClassifier())
+    app = create_app(extractor=FakeExtractor())
     with TestClient(app) as client:
         resp = client.post(
             "/jobs",
@@ -82,7 +75,7 @@ def test_post_jobs_rejects_non_image():
 
 
 def test_post_jobs_rejects_oversized_image():
-    app = create_app(engine=_FakeEngine(), classifier=FakeClassifier())
+    app = create_app(extractor=FakeExtractor())
     big = b"x" * (MAX_UPLOAD_BYTES + 1)
     with TestClient(app) as client:
         resp = client.post(
@@ -94,19 +87,19 @@ def test_post_jobs_rejects_oversized_image():
 
 
 def test_progress_page_404_for_unknown_job():
-    app = create_app(engine=_FakeEngine(), classifier=FakeClassifier())
+    app = create_app(extractor=FakeExtractor())
     with TestClient(app) as client:
         assert client.get("/jobs/nope").status_code == HTTPStatus.NOT_FOUND
 
 
 def test_progress_page_reflects_step_state(monkeypatch):
-    app = create_app(engine=_FakeEngine(), classifier=FakeClassifier())
+    app = create_app(extractor=FakeExtractor())
     with TestClient(app) as client:
         job = client.app.state.jobs.create(Path("/tmp/x.jpg"))
         job.status = JobStatus.RUNNING
-        job.stage = Stage.CLASSIFY
-        job.stage_started_at = {Stage.OCR: 100.0, Stage.CLASSIFY: 105.0}
-        job.stage_finished_at = {Stage.OCR: 104.0}
+        job.stage = Stage.ENRICH
+        job.stage_started_at = {Stage.EXTRACT: 100.0, Stage.ENRICH: 105.0}
+        job.stage_finished_at = {Stage.EXTRACT: 104.0}
         # Patch the name binding in routes_mod, not the real `time` module --
         # the TestClient's underlying event loop calls time.monotonic() too.
         monkeypatch.setattr(
@@ -115,19 +108,29 @@ def test_progress_page_reflects_step_state(monkeypatch):
         resp = client.get(f"/jobs/{job.id}")
 
     assert resp.status_code == HTTPStatus.OK
-    assert '"stage":"ocr","status":"done","elapsed_ms":4000' in resp.text
-    assert '"stage":"classify","status":"running","elapsed_ms":2500' in resp.text
+    assert '"stage":"extract","status":"done","elapsed_ms":4000' in resp.text
+    assert '"stage":"enrich","status":"running","elapsed_ms":2500' in resp.text
+
+
+def test_progress_page_starts_all_stages_pending():
+    app = create_app(extractor=FakeExtractor())
+    with TestClient(app) as client:
+        job = client.app.state.jobs.create(Path("/tmp/x.jpg"))
+        resp = client.get(f"/jobs/{job.id}")
+
+    assert resp.status_code == HTTPStatus.OK
+    assert '"stage":"extract","status":"pending","elapsed_ms":null' in resp.text
     assert '"stage":"enrich","status":"pending","elapsed_ms":null' in resp.text
 
 
 def test_sse_404_for_unknown_job():
-    app = create_app(engine=_FakeEngine(), classifier=FakeClassifier())
+    app = create_app(extractor=FakeExtractor())
     with TestClient(app) as client:
         assert client.get("/jobs/nope/events").status_code == HTTPStatus.NOT_FOUND
 
 
 @contextlib.contextmanager
-def _completed_job(monkeypatch, fake_ocr_result):
+def _completed_job(monkeypatch):
     """Yield (client, job_id, events) for a job driven to completion.
 
     ``events`` is the SSE body that drained the job's queue, for tests that
@@ -140,9 +143,7 @@ def _completed_job(monkeypatch, fake_ocr_result):
             scientificName="Papilio machaon", country="Switzerland"
         ),
     )
-    with TestClient(
-        create_app(engine=StaticEngine(fake_ocr_result), classifier=FakeClassifier())
-    ) as client:
+    with TestClient(create_app(extractor=FakeExtractor())) as client:
         resp = client.post(
             "/jobs",
             files={"image": ("s.png", io.BytesIO(_png_bytes()), "image/png")},
@@ -153,8 +154,8 @@ def _completed_job(monkeypatch, fake_ocr_result):
         yield client, job_id, events
 
 
-def test_review_renders_record(monkeypatch, fake_ocr_result):
-    with _completed_job(monkeypatch, fake_ocr_result) as (client, job_id, _):
+def test_review_renders_record(monkeypatch):
+    with _completed_job(monkeypatch) as (client, job_id, _):
         resp = client.get(f"/jobs/{job_id}/review")
     assert resp.status_code == HTTPStatus.OK
     assert "Papilio machaon" in resp.text
@@ -167,21 +168,21 @@ def test_review_renders_record(monkeypatch, fake_ocr_result):
     assert 'data-source="identification"' in resp.text
 
 
-def test_image_served(monkeypatch, fake_ocr_result):
-    with _completed_job(monkeypatch, fake_ocr_result) as (client, job_id, _):
+def test_image_served(monkeypatch):
+    with _completed_job(monkeypatch) as (client, job_id, _):
         resp = client.get(f"/jobs/{job_id}/image")
     assert resp.status_code == HTTPStatus.OK
     assert resp.headers["content-type"].startswith("image/")
 
 
 def test_image_404_for_unknown_job():
-    app = create_app(engine=_FakeEngine(), classifier=FakeClassifier())
+    app = create_app(extractor=FakeExtractor())
     with TestClient(app) as client:
         assert client.get("/jobs/nope/image").status_code == HTTPStatus.NOT_FOUND
 
 
-def test_export_csv_round_trips(monkeypatch, fake_ocr_result):
-    with _completed_job(monkeypatch, fake_ocr_result) as (client, job_id, _):
+def test_export_csv_round_trips(monkeypatch):
+    with _completed_job(monkeypatch) as (client, job_id, _):
         resp = client.post(
             f"/jobs/{job_id}/export?format=csv",
             data={"scientificName": "Papilio machaon", "country": "Switzerland"},
@@ -193,8 +194,8 @@ def test_export_csv_round_trips(monkeypatch, fake_ocr_result):
     assert "Papilio machaon" in resp.text
 
 
-def test_export_json(monkeypatch, fake_ocr_result):
-    with _completed_job(monkeypatch, fake_ocr_result) as (client, job_id, _):
+def test_export_json(monkeypatch):
+    with _completed_job(monkeypatch) as (client, job_id, _):
         resp = client.post(
             f"/jobs/{job_id}/export?format=json",
             data={"scientificName": "Papilio machaon"},
@@ -203,8 +204,8 @@ def test_export_json(monkeypatch, fake_ocr_result):
     assert resp.json()["scientificName"] == "Papilio machaon"
 
 
-def test_export_validation_error_rerenders(monkeypatch, fake_ocr_result):
-    with _completed_job(monkeypatch, fake_ocr_result) as (client, job_id, _):
+def test_export_validation_error_rerenders(monkeypatch):
+    with _completed_job(monkeypatch) as (client, job_id, _):
         resp = client.post(
             f"/jobs/{job_id}/export?format=csv",
             data={"decimalLatitude": "999"},  # out of [-90, 90]
@@ -215,14 +216,14 @@ def test_export_validation_error_rerenders(monkeypatch, fake_ocr_result):
 
 
 def test_export_404_for_unknown_job():
-    app = create_app(engine=_FakeEngine(), classifier=FakeClassifier())
+    app = create_app(extractor=FakeExtractor())
     with TestClient(app) as client:
         resp = client.post("/jobs/nope/export?format=csv", data={"scientificName": "X"})
     assert resp.status_code == HTTPStatus.NOT_FOUND
 
 
-def test_export_unknown_format_returns_400(monkeypatch, fake_ocr_result):
-    with _completed_job(monkeypatch, fake_ocr_result) as (client, job_id, _):
+def test_export_unknown_format_returns_400(monkeypatch):
+    with _completed_job(monkeypatch) as (client, job_id, _):
         resp = client.post(
             f"/jobs/{job_id}/export?format=xml",
             data={"scientificName": "Papilio machaon"},
@@ -230,35 +231,34 @@ def test_export_unknown_format_returns_400(monkeypatch, fake_ocr_result):
     assert resp.status_code == HTTPStatus.BAD_REQUEST
 
 
-def test_sse_stream_emits_done(monkeypatch, fake_ocr_result):
-    with _completed_job(monkeypatch, fake_ocr_result) as (_, _, body):
+def test_sse_stream_emits_done(monkeypatch):
+    with _completed_job(monkeypatch) as (_, _, body):
         pass
     # Every pipeline stage is streamed, with started/finished status, then done.
-    assert '"stage":"ocr"' in body
-    assert '"stage":"classify"' in body
+    assert '"stage":"extract"' in body
     assert '"stage":"enrich"' in body
     assert '"status":"started"' in body
     assert '"status":"finished"' in body
     assert '"status":"done"' in body
 
 
-def test_sse_reconnect_after_completion(monkeypatch, fake_ocr_result):
+def test_sse_reconnect_after_completion(monkeypatch):
     # Regression: a second /events connection after the queue has been drained
     # must not hang on the empty single-consumer queue -- it should short-circuit
     # to the terminal event (the spec's "leave the page and return" flow).
-    with _completed_job(monkeypatch, fake_ocr_result) as (client, job_id, first):
+    with _completed_job(monkeypatch) as (client, job_id, first):
         second = client.get(f"/jobs/{job_id}/events").text  # must not block
     assert '"status":"done"' in first
     assert '"status":"done"' in second
     # The reconnect replays no stage events -- it only re-emits the terminal one.
-    assert '"stage":"ocr"' not in second
+    assert '"stage":"extract"' not in second
 
 
 def test_derive_locality_replaces_section(monkeypatch):
-    monkeypatch.setattr(
-        routes_mod,
-        "enrich_locations",
-        lambda texts: {
+    monkeypatch.setitem(
+        routes_mod.DERIVATIONS["locality"],
+        "run",
+        lambda text: {
             "locality": "Mont Tendre",
             "country": "Switzerland",
             "countryCode": "CH",
@@ -266,7 +266,7 @@ def test_derive_locality_replaces_section(monkeypatch):
             "decimalLongitude": 6.3024,
         },
     )
-    app = create_app(engine=_FakeEngine(), classifier=FakeClassifier())
+    app = create_app(extractor=FakeExtractor())
     with TestClient(app) as client:
         resp = client.post(
             "/derive/locality", data={"verbatimLocality": "Mont Tendre, Vaud"}
@@ -280,16 +280,16 @@ def test_derive_locality_replaces_section(monkeypatch):
 
 
 def test_derive_identification(monkeypatch):
-    monkeypatch.setattr(
-        routes_mod,
-        "enrich_species",
-        lambda names: {
+    monkeypatch.setitem(
+        routes_mod.DERIVATIONS["identification"],
+        "run",
+        lambda text: {
             "scientificName": "Papilio machaon",
             "genus": "Papilio",
             "specificEpithet": "machaon",
         },
     )
-    app = create_app(engine=_FakeEngine(), classifier=FakeClassifier())
+    app = create_app(extractor=FakeExtractor())
     with TestClient(app) as client:
         resp = client.post(
             "/derive/identification",
@@ -300,7 +300,7 @@ def test_derive_identification(monkeypatch):
 
 
 def test_derive_unknown_source_404():
-    app = create_app(engine=_FakeEngine(), classifier=FakeClassifier())
+    app = create_app(extractor=FakeExtractor())
     with TestClient(app) as client:
         assert client.post("/derive/nope", data={}).status_code == HTTPStatus.NOT_FOUND
 
@@ -308,13 +308,13 @@ def test_derive_unknown_source_404():
 def test_derive_empty_verbatim_skips_lookup(monkeypatch):
     called = False
 
-    def spy(texts):
+    def spy(text):
         nonlocal called
         called = True
         return {}
 
-    monkeypatch.setattr(routes_mod, "enrich_locations", spy)
-    app = create_app(engine=_FakeEngine(), classifier=FakeClassifier())
+    monkeypatch.setitem(routes_mod.DERIVATIONS["locality"], "run", spy)
+    app = create_app(extractor=FakeExtractor())
     with TestClient(app) as client:
         resp = client.post("/derive/locality", data={"verbatimLocality": "   "})
     assert resp.status_code == HTTPStatus.OK
@@ -323,12 +323,23 @@ def test_derive_empty_verbatim_skips_lookup(monkeypatch):
 
 
 def test_derive_lookup_failure_returns_502(monkeypatch):
-    def boom(texts):
+    def boom(text):
         raise RuntimeError("nominatim unreachable")
 
-    monkeypatch.setattr(routes_mod, "enrich_locations", boom)
-    app = create_app(engine=_FakeEngine(), classifier=FakeClassifier())
+    monkeypatch.setitem(routes_mod.DERIVATIONS["locality"], "run", boom)
+    app = create_app(extractor=FakeExtractor())
     with TestClient(app) as client:
         resp = client.post("/derive/locality", data={"verbatimLocality": "Vaud"})
     assert resp.status_code == HTTPStatus.BAD_GATEWAY
     assert "Lookup failed" in resp.json()["detail"]
+
+
+def test_review_renders_closed_vocabulary_as_select(monkeypatch):
+    # A schema enum must be a select in the form, so the constraint is visible
+    # while editing instead of only failing at export.
+    with _completed_job(monkeypatch) as (client, job_id, _):
+        resp = client.get(f"/jobs/{job_id}/review")
+    assert resp.status_code == HTTPStatus.OK
+    assert '<select name="sex">' in resp.text
+    for value in SEX_VALUES:
+        assert f'<option value="{value}"' in resp.text
