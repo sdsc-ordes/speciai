@@ -55,6 +55,11 @@ def test_month_of(word: str, expected: int | None) -> None:
         ("10.-18.VIII.41", "1941-08-10/1941-08-18"),
         # A qualifier is not understood, so the day precision is given up, not guessed.
         ("Ende Juli 1939", "1939-07-01/1939-07-31"),
+        # Extraction does not always copy the label text. An ISO verbatim date is read
+        # as itself, not split on its hyphens into a range ending in the year 4.
+        ("1913-05-14", "1913-05-14"),
+        ("1940-05-04", "1940-05-04"),
+        ("1921-03", "1921-03-01/1921-03-31"),
         # Nothing readable yields nothing rather than a wrong date.
         ("", None),
         ("   ", None),
@@ -80,6 +85,12 @@ def test_month_word_position_decides_day_from_year() -> None:
     """Numbers before the month are the day; after it, the year."""
     assert fields("21/VII/28") == (21, 7, 1928)
     assert fields("VII 28") == (None, 7, 1928)
+
+
+def test_iso_month_and_year_range_are_told_apart() -> None:
+    """A trailing 01-12 is a month; anything else is the far end of a year range."""
+    assert darwin_core("1934-12") == "1934-12-01/1934-12-31"
+    assert darwin_core("1934-38") == "1934-01-01/1938-12-31"
 
 
 @pytest.mark.parametrize(
