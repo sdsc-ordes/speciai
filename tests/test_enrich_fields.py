@@ -65,6 +65,7 @@ def test_enrich_species_emits_only_declared_fields(monkeypatch):
             "name": "Papilio machaon",
             "authorship": "Linnaeus, 1758",
             "specificEpithet": "machaon",
+            "key": "1938324",
         },
         "classification": [
             {"rank": "KINGDOM", "name": "Animalia"},
@@ -94,6 +95,92 @@ def test_enrich_species_emits_only_declared_fields(monkeypatch):
         f"enrich_species emitted undeclared keys: "
         f"{sorted(set(result) - set(SPECIES_FIELDS))}"
     )
+
+
+def _gbif_returning(monkeypatch, payload):
+    """Point fetch_gbif_species at a canned response instead of the network."""
+    monkeypatch.setattr(
+        species_mod,
+        "requests",
+        SimpleNamespace(
+            get=lambda url, params=None: SimpleNamespace(
+                raise_for_status=lambda: None, json=lambda: payload
+            )
+        ),
+    )
+    species_mod.fetch_gbif_species.cache_clear()
+
+
+def test_a_subspecies_match_keeps_the_trinomen_and_the_classification(monkeypatch):
+    # A label naming a subspecies is GBIF's *best* case, not a failure: the match is
+    # exact and carries more than a species match would. Discarding it left records
+    # like "Carabus solieri bonnetianus" with no taxonomy at all.
+    _gbif_returning(
+        monkeypatch,
+        {
+            "usage": {
+                "rank": "SUBSPECIES",
+                "name": "Carabus solieri bonnetianus Colas, 1937",
+                "authorship": "Colas, 1937",
+                "specificEpithet": "solieri",
+                "infraspecificEpithet": "bonnetianus",
+                "key": "4470621",
+            },
+            "classification": [
+                {"rank": "KINGDOM", "name": "Animalia"},
+                {"rank": "GENUS", "name": "Carabus"},
+                {"rank": "SPECIES", "name": "Carabus solieri"},
+                {"rank": "SUBSPECIES", "name": "Carabus solieri bonnetianus"},
+            ],
+        },
+    )
+
+    result = enrich_species("Carabus solieri bonnetianus Colas, 1937")
+
+    assert result["scientificName"] == "Carabus solieri bonnetianus Colas, 1937"
+    assert result["taxonId"] == "4470621"
+    assert result["specificEpithet"] == "solieri"
+    assert result["genus"] == "Carabus"
+    # The label already read the infraspecific epithet; SPECIES_FIELDS is the
+    # module's whole output contract and does not include it.
+    assert set(result) <= set(SPECIES_FIELDS)
+
+
+def test_a_higher_rank_match_keeps_the_classification_only(monkeypatch):
+    # GBIF could not resolve the species but knows the genus is real. The family and
+    # order are worth keeping; the matched name is a genus, so it is not the taxon.
+    _gbif_returning(
+        monkeypatch,
+        {
+            "usage": {
+                "rank": "GENUS",
+                "name": "Campsomeris Guerin-Meneville, 1838",
+                "authorship": "Guerin-Meneville, 1838",
+                "key": "4681428",
+            },
+            "classification": [
+                {"rank": "KINGDOM", "name": "Animalia"},
+                {"rank": "ORDER", "name": "Hymenoptera"},
+                {"rank": "FAMILY", "name": "Scoliidae"},
+                {"rank": "GENUS", "name": "Campsomeris"},
+            ],
+        },
+    )
+
+    result = enrich_species("Campsomeris peregrina Lepeletier, 1845")
+
+    assert result["family"] == "Scoliidae"
+    assert result["genus"] == "Campsomeris"
+    assert "scientificName" not in result
+    assert "scientificNameAuthorship" not in result
+    # The key of a genus-level match identifies the genus, not this specimen.
+    assert "taxonId" not in result
+
+
+def test_no_match_at_all_yields_nothing(monkeypatch):
+    _gbif_returning(monkeypatch, {"diagnostics": {"matchType": "NONE"}})
+
+    assert enrich_species("Not A Real Name") == {}
 
 
 def test_parse_address_prefers_the_most_specific_locality(monkeypatch):
