@@ -63,7 +63,8 @@ Rules:
 - verbatimCoordinates holds a grid reference as written; put its system (e.g.
   "Swiss CH1903", "UTM") in verbatimCoordinateSystem when the label names one.
 - verbatimLocality holds place names and administrative hierarchy only. Leave out
-  elevation and coordinates.
+  elevation and coordinates. Separate hierarchy levels with " : ", widest first:
+  "CH SH Merishausen : Chlosterfeld". A single place name takes no separator.
 - verbatimIdentification is the taxon name as written, including the author and year
   exactly as printed, brackets included: "Zygaena filipendulae (Linnaeus, 1758)".
 - infraspecificEpithet is the subspecies or form name when the label gives a trinomen.
@@ -72,6 +73,11 @@ Rules:
   never a reformatting of the same one.
 - typeStatus only carries an explicit designation ("holotype", "paratype"). Leave it
   null otherwise; do not describe the specimen.
+- preparations is the one field you read from the specimen and not from a label:
+  how it is mounted. "pinned" when the pin passes through the insect itself,
+  "carded" when it is glued to a card or paper rectangle carried on the pin,
+  "pointed" when it sits on a narrow paper triangle. Leave it null when the mount
+  is not visible; do not describe the specimen in any other way.
 """
 
 
@@ -104,6 +110,7 @@ class _LabelReading(BaseModel):
     sex: Literal[SEX_VALUES] | None = None
     lifeStage: str | None = None
     typeStatus: str | None = None
+    preparations: str | None = None
 
 
 def image_data_url(image_path: Path) -> str:
