@@ -259,7 +259,9 @@ def read_usage(path: Path) -> dict[str, tuple[str, str]]:
     usage = {}
     with path.open(newline="", encoding="utf-8") as handle:
         for row in csv.DictReader(handle):
-            stem = row["model"].replace("/", "-").replace(":", "-") + f"-{row['variant']}"
+            stem = (
+                row["model"].replace("/", "-").replace(":", "-") + f"-{row['variant']}"
+            )
             usage[stem] = (row.get("tokens", ""), row.get("seconds", ""))
     return usage
 
@@ -365,8 +367,14 @@ def write_scores(
     with report.open("w", newline="", encoding="utf-8") as handle:
         writer = csv.writer(handle)
         header = (
-            "run", "field", "correct", "wrong", "missing", "spurious",
-            "accuracy", "recall",
+            "run",
+            "field",
+            "correct",
+            "wrong",
+            "missing",
+            "spurious",
+            "accuracy",
+            "recall",
         )
         writer.writerow(header)
         for name in names:
@@ -391,7 +399,9 @@ def write_scores(
 
 def main() -> int:
     """Print per-field accuracy for every run in one batch folder."""
-    parser = argparse.ArgumentParser(description="Score a run folder against the sheet.")
+    parser = argparse.ArgumentParser(
+        description="Score a run folder against the sheet."
+    )
     parser.add_argument("batch", nargs="?", type=Path, default=None)
     parser.add_argument("--eth", type=Path, default=ETH_EXPORT)
     args = parser.parse_args()

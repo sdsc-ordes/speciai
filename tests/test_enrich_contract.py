@@ -11,9 +11,7 @@ def test_enrich_record_preserves_verbatim_and_adds_derived(monkeypatch):
         "enrich_locations",
         lambda text: {"country": "Switzerland", "decimalLatitude": 46.5946},
     )
-    monkeypatch.setattr(
-        enrich_mod, "enrich_species", lambda name: {"genus": "Papilio"}
-    )
+    monkeypatch.setattr(enrich_mod, "enrich_species", lambda name: {"genus": "Papilio"})
     monkeypatch.setattr(
         enrich_mod,
         "_AUTHORITIES",
@@ -49,9 +47,7 @@ def test_enrich_record_skips_lookups_without_a_verbatim_source(monkeypatch):
     def boom(text):
         raise AssertionError("lookup ran without a verbatim source")
 
-    monkeypatch.setattr(
-        enrich_mod, "_AUTHORITIES", (("verbatimLocality", boom),)
-    )
+    monkeypatch.setattr(enrich_mod, "_AUTHORITIES", (("verbatimLocality", boom),))
 
     record = enrich_mod.enrich_record(DarwinCoreRecord(catalogNumber="ETHZ-ENT 1"))
 

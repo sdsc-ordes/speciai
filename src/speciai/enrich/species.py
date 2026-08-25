@@ -51,20 +51,20 @@ def fetch_gbif_species(scientific_name: str) -> dict[str, str] | None:
 
     data = resp.json()
     try:
-        usage = data['usage']
+        usage = data["usage"]
     except KeyError:
         return None
-    if usage['rank'] != "SPECIES":
+    if usage["rank"] != "SPECIES":
         return None
 
-    taxo['scientificNameAuthorship'] = usage['authorship']
-    taxo['scientificName'] = usage['name']
-    taxo['specificEpithet'] = usage['specificEpithet']
+    taxo["scientificNameAuthorship"] = usage["authorship"]
+    taxo["scientificName"] = usage["name"]
+    taxo["specificEpithet"] = usage["specificEpithet"]
 
-    for classif in data['classification']:
-        rank = classif['rank'].lower()
+    for classif in data["classification"]:
+        rank = classif["rank"].lower()
         if rank in TAXONOMIC_RANKS:
-            taxo[rank] = classif['name']
+            taxo[rank] = classif["name"]
 
     return taxo
 

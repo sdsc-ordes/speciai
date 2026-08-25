@@ -132,6 +132,7 @@ ASSETS = (
     "813112",  # Crambidae / ?
 )
 
+
 def photos():
     """Yield (asset id, url) for each row linking exactly one photo."""
     rows = load_workbook(SHEET, read_only=True, data_only=True).active.values

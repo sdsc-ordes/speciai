@@ -120,6 +120,7 @@ def read_details(path: Path) -> dict[str, list[dict]]:
             },
         )
         photo["runs"][row["run"]] = {"got": row["got"], "outcome": row["outcome"]}
+
     # By photo id, the same order in every field, so a row can be followed across
     # fields. Numeric where possible: "98" must not sort above "137671".
     def by_asset(photo: dict) -> tuple[int, str]:
@@ -198,10 +199,14 @@ def render(batch: Path) -> str:
             for run in runs
         )
     ]
-    ignored = [field for field in fields if field not in filled and field != TRANSCRIPT_COLUMN]
+    ignored = [
+        field for field in fields if field not in filled and field != TRANSCRIPT_COLUMN
+    ]
     ranked = sorted(
         filled,
-        key=lambda f: -sum(scores[run][f]["accuracy"] or 0.0 for run in runs) / len(runs),
+        key=lambda f: (
+            -sum(scores[run][f]["accuracy"] or 0.0 for run in runs) / len(runs)
+        ),
     )
 
     attempted = {run: totals(scores[run], filled) for run in runs}
@@ -212,9 +217,7 @@ def render(batch: Path) -> str:
         for run in runs
     }
     best = max(runs, key=lambda run: rates[run])
-    photos = max(
-        (graded(scores[best][field]) for field in filled), default=0
-    )
+    photos = max((graded(scores[best][field]) for field in filled), default=0)
     spend = sum(int(usage[run]["tokens"]) for run in runs if run in usage)
 
     tiles = [
@@ -250,7 +253,7 @@ def render(batch: Path) -> str:
     )
     heat_rows = "".join(
         f'<tr data-field="{html.escape(field)}" class="'
-        f'{"thin " if max(graded(scores[run][field]) for run in runs) < MIN_GRADED else ""}'
+        f"{'thin ' if max(graded(scores[run][field]) for run in runs) < MIN_GRADED else ''}"
         f'{"drill" if field in details else ""}">'
         f'<th class="field">{html.escape(field)}</th>'
         f'<td class="graded">{max(graded(scores[run][field]) for run in runs)}</td>'
@@ -323,8 +326,11 @@ def render(batch: Path) -> str:
     money_card = f"""
     <section class="card">
       <h2>Cost and speed</h2>
-      <p class="note">RCP list price, {"charged per model at its own rates" if exact
-        else "estimated from run totals at " + f"{INPUT_SHARE:.0%}" + " input share"}.
+      <p class="note">RCP list price, {
+        "charged per model at its own rates"
+        if exact
+        else "estimated from run totals at " + f"{INPUT_SHARE:.0%}" + " input share"
+    }.
         Per-1000 and full-collection figures scale this batch's cost per photo;
         {COLLECTION:,} is what fetch-images.py can draw on.</p>
       <div class="scroll">
@@ -344,9 +350,7 @@ def render(batch: Path) -> str:
         accuracy=accuracy_html,
         heat_header=header,
         heat_key=key,
-        details=html.escape(
-            json.dumps({"fields": details, "runs": runs})
-        ),
+        details=html.escape(json.dumps({"fields": details, "runs": runs})),
         thin_note=(
             f"Greyed rows are graded on fewer than {MIN_GRADED} photos, too few for the "
             f"percentage to mean anything: {html.escape(', '.join(thin))}."

@@ -20,8 +20,10 @@ let
       package = pkgs.prettier;
     };
 
-    # Python
-    programs.ruff.enable = true;
+    # Python. ruff-check autofixes lint, ruff-format lays the code out; enabling
+    # only the first leaves the repo with no Python formatter at all.
+    programs.ruff-check.enable = true;
+    programs.ruff-format.enable = true;
 
     # Shell.
     programs.shfmt = {

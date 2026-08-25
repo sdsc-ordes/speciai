@@ -32,23 +32,23 @@ RETRY_WAIT_SECONDS = 5.0
 # fits the place -- a Swiss village may come back as ``village``, ``town`` or
 # ``municipality``, and picking by dict insertion order silently lost the finer one.
 OSM_ADDRESS_MAPPINGS: dict[DWCTerm, tuple[OSMField, ...]] = {
-    'locality': ('hamlet', 'village', 'suburb', 'town', 'municipality', 'city'),
-    'stateProvince': ('state', 'region'),
-    'country': ('country',),
-    'countryCode': ('country_code',),
+    "locality": ("hamlet", "village", "suburb", "town", "municipality", "city"),
+    "stateProvince": ("state", "region"),
+    "country": ("country",),
+    "countryCode": ("country_code",),
 }
 
 # Every Darwin Core field ``enrich_locations`` can emit. This is the module's
 # output contract: callers (e.g. the review form's re-derive) key off it, and a
 # test asserts the helper never emits a key outside this set.
 LOCATION_FIELDS: tuple[DWCTerm, ...] = (
-    'locality',
-    'continent',
-    'country',
-    'countryCode',
-    'stateProvince',
-    'decimalLatitude',
-    'decimalLongitude',
+    "locality",
+    "continent",
+    "country",
+    "countryCode",
+    "stateProvince",
+    "decimalLatitude",
+    "decimalLongitude",
 )
 
 
@@ -75,7 +75,7 @@ def nominatim_locate(location: str) -> Location | None:
 
 def parse_address(loc: Location) -> dict[str, str | None]:
     """Map a Nominatim address onto Darwin Core terms."""
-    address = loc.raw['address']
+    address = loc.raw["address"]
     out_address: dict[str, str | None] = {}
     for term, osm_keys in OSM_ADDRESS_MAPPINGS.items():
         value = next((address[key] for key in osm_keys if key in address), None)
@@ -83,10 +83,10 @@ def parse_address(loc: Location) -> dict[str, str | None]:
             out_address[term] = value
 
     # Nominatim reports the code lowercase; ISO 3166-1 alpha-2 is uppercase.
-    code = out_address.get('countryCode')
+    code = out_address.get("countryCode")
     if code is not None:
-        out_address['countryCode'] = code.upper()
-        out_address['continent'] = continent_name(code)
+        out_address["countryCode"] = code.upper()
+        out_address["continent"] = continent_name(code)
 
     return out_address
 
@@ -101,7 +101,7 @@ def enrich_locations(location_text: str) -> dict[str, str | None]:
         return {}
 
     output = parse_address(loc)
-    output['decimalLatitude'] = loc.latitude
-    output['decimalLongitude'] = loc.longitude
+    output["decimalLatitude"] = loc.latitude
+    output["decimalLongitude"] = loc.longitude
 
     return output

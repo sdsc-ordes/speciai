@@ -37,9 +37,7 @@ def _cmd_extract(args: argparse.Namespace) -> None:
     )
 
     for image_path in args.images:
-        record = pipeline_run(
-            image_path, extractor, media_url=_media_url(image_path)
-        )
+        record = pipeline_run(image_path, extractor, media_url=_media_url(image_path))
         print(record.model_dump_json(exclude_none=True))
 
 
@@ -57,9 +55,9 @@ def _cmd_serve(args: argparse.Namespace) -> None:
 
     load_dotenv()
     app = create_app(
-        llm_base_url = args.llm_base_url,
-        model_id = args.model,
-        api_key = os.getenv("LLM_API_KEY"),
+        llm_base_url=args.llm_base_url,
+        model_id=args.model,
+        api_key=os.getenv("LLM_API_KEY"),
     )
     uvicorn.run(app, host=args.host, port=args.port)
 
