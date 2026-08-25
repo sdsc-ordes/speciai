@@ -6,8 +6,8 @@ from speciai.schema import DarwinCoreRecord
 class FakeExtractor:
     """Stand in for the LLM extractor so tests never call the endpoint.
 
-    Records the ``prompt_extra`` of the last call, so a test can assert what the
-    pipeline told the model without reaching an endpoint.
+    Keeps the ``prompt_extra`` of the last call so a test can check what the
+    pipeline told the model.
     """
 
     def __init__(self):

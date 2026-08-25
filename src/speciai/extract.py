@@ -146,9 +146,9 @@ class Extractor:
     ) -> DarwinCoreRecord:
         """Read the specimen image at ``image_path`` into a sparse record.
 
-        ``prompt_extra`` holds extra prompt lines appended to :data:`PROMPT`, for
-        facts the caller knows about this one image and the model must not
-        second-guess -- QR payloads, currently.
+        ``prompt_extra`` lines are appended to :data:`PROMPT`. They carry facts the
+        caller knows about this image and the model must not second-guess, such as
+        QR payloads.
 
         Only label-readable terms are filled; the enrichment stage resolves the
         rest. Raises :class:`ExtractionError` when the endpoint returns no parsed

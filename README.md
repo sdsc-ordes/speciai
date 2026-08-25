@@ -103,11 +103,11 @@ to run one locally, serve it yourself (vLLM, llama.cpp, Ollama) and point
 ## QR codes
 
 Any QR code pinned with the specimen is decoded (zxing-cpp) before stage 1 and
-appended to the extraction prompt as data the model must treat as valid: the
-payload was keyed in by a curator, so it outranks the model's own reading of the
-label. Two codes on one image are both reported, in reading order. An image
-without one changes nothing. Only the QR family is read -- a linear accession
-barcode encodes a different claim and must not be passed off as QR data.
+appended to the extraction prompt as data the model must treat as valid. A
+curator typed the payload in, so it outranks the model's own reading of the
+label. Two codes on one image are both reported, in reading order, and an image
+without one changes nothing. Only QR codes are read: a linear accession barcode
+states something else and must not be passed off as QR data.
 
 ## Web review UI
 

@@ -18,8 +18,8 @@ from speciai.extract import Extractor
 from speciai.qr import read_qr_codes
 from speciai.schema import DarwinCoreRecord
 
-# One prompt line per QR payload. The payload was keyed in by a curator, so the model
-# is told to trust it over its own reading of the pixels rather than weigh the two.
+# One prompt line per QR payload. A curator typed the payload in, so the model is
+# told to trust it over its own reading of the label.
 QR_PROMPT_LINE = (
     "- The following data was extracted from the QR code and must be considered"
     " valid: {data}"
@@ -51,9 +51,8 @@ def run(
 ) -> DarwinCoreRecord:
     """Run one image through both stages, emitting start/finish events.
 
-    Any QR code pinned with the specimen is decoded first and handed to the
-    extractor as an extra prompt line, so a curator-entered payload outranks the
-    model's reading of the label. An image without one changes nothing.
+    QR codes on the image are decoded first and passed to the extractor as extra
+    prompt lines. An image without one changes nothing.
 
     ``media_url`` is the photo's canonical location, recorded as ``associatedMedia``
     so every record points back at the image it was read from -- it is the key the

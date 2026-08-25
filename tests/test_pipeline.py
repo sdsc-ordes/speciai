@@ -9,10 +9,16 @@ from fakes import FakeExtractor
 from speciai.pipeline import Stage, StageEvent, run
 from speciai.schema import DarwinCoreRecord
 
+# The wording pipeline.run is expected to send, spelled out rather than imported so a
+# reworded prompt shows up here as a failure.
+QR_LINE = (
+    "- The following data was extracted from the QR code and must be considered valid:"
+)
+
 
 @pytest.fixture(autouse=True)
 def _no_qr_codes(monkeypatch):
-    """Stub the QR decode: these tests name image paths that never exist on disk."""
+    """Stub the QR decode: these tests use image paths that do not exist."""
     monkeypatch.setattr(pipeline_mod, "read_qr_codes", lambda path: [])
 
 
@@ -62,14 +68,8 @@ def test_run_passes_every_qr_payload_to_the_extractor(monkeypatch):
     run(Path("specimen.jpg"), extractor)
 
     assert extractor.prompt_extra == [
-        (
-            "- The following data was extracted from the QR code and must be"
-            " considered valid: Papilio machaon"
-        ),
-        (
-            "- The following data was extracted from the QR code and must be"
-            " considered valid: ETHZ-0082619"
-        ),
+        f"{QR_LINE} Papilio machaon",
+        f"{QR_LINE} ETHZ-0082619",
     ]
 
 
