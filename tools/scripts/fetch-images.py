@@ -26,7 +26,7 @@ SHEET = ROOT / "examples" / "eth-output.xlsx"
 DESTINATION = ROOT / "examples" / "bugs"
 # How many of ASSETS to use. The list is in greedy order -- each entry was picked for
 # adding the most unseen traits -- so the first N is itself the most varied N available.
-SAMPLE = 25
+SAMPLE = 50
 # One per line, family / collector. 100 photos covering 42 families, 96 genera,
 # 87 collectors and 72 countries; the first 25 cover 25 families and 24 collectors.
 ASSETS = (
