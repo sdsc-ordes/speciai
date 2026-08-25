@@ -38,6 +38,7 @@ flowchart TD
     EXPORT[Export]
 
     LLM{{"Multimodal LLM via an OpenAI-compatible endpoint"}}
+    QR{{"QR codes decoded (zxing-cpp) and fed to the prompt as fact"}}
     ENRICHTECH{{"Nominatim (geopy) · GBIF species match"}}
     FORM{{"Interactive pre-filled form"}}
 
@@ -47,6 +48,7 @@ flowchart TD
     REVIEW -->|corrections| ENRICH
 
     EXTRACT -.- LLM
+    EXTRACT -.- QR
     ENRICH -.- ENRICHTECH
     REVIEW -.- FORM
 
@@ -56,7 +58,7 @@ flowchart TD
 
     class IMG,DWC,ENRICHED,VALID,CSV,JSONOUT data;
     class EXTRACT,ENRICH,REVIEW,EXPORT proc;
-    class LLM,ENRICHTECH,FORM tech;
+    class LLM,QR,ENRICHTECH,FORM tech;
 ```
 
 ## Stages
@@ -97,6 +99,15 @@ to run one locally, serve it yourself (vLLM, llama.cpp, Ollama) and point
   `http://localhost:8000/v1` for a locally served model.
 - `--model` (required): model id the endpoint serves.
 - `LLM_API_KEY` (env var, loaded from `.env`): API key sent to the endpoint.
+
+## QR codes
+
+Any QR code pinned with the specimen is decoded (zxing-cpp) before stage 1 and
+appended to the extraction prompt as data the model must treat as valid: the
+payload was keyed in by a curator, so it outranks the model's own reading of the
+label. Two codes on one image are both reported, in reading order. An image
+without one changes nothing. Only the QR family is read -- a linear accession
+barcode encodes a different claim and must not be passed off as QR data.
 
 ## Web review UI
 

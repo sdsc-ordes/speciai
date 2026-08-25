@@ -15,7 +15,15 @@ from typing import Literal
 
 from speciai.enrich import enrich_record
 from speciai.extract import Extractor
+from speciai.qr import read_qr_codes
 from speciai.schema import DarwinCoreRecord
+
+# One prompt line per QR payload. The payload was keyed in by a curator, so the model
+# is told to trust it over its own reading of the pixels rather than weigh the two.
+QR_PROMPT_LINE = (
+    "- The following data was extracted from the QR code and must be considered"
+    " valid: {data}"
+)
 
 
 class Stage(str, Enum):
@@ -43,13 +51,18 @@ def run(
 ) -> DarwinCoreRecord:
     """Run one image through both stages, emitting start/finish events.
 
+    Any QR code pinned with the specimen is decoded first and handed to the
+    extractor as an extra prompt line, so a curator-entered payload outranks the
+    model's reading of the label. An image without one changes nothing.
+
     ``media_url`` is the photo's canonical location, recorded as ``associatedMedia``
     so every record points back at the image it was read from -- it is the key the
     validation sheet is paired on. It falls back to the file name when the caller
     has no URL, because a record that cannot name its source photo is unusable.
     """
     on_event(StageEvent(stage=Stage.EXTRACT, status="started"))
-    extracted = extractor.run(image_path)
+    qr_lines = [QR_PROMPT_LINE.format(data=data) for data in read_qr_codes(image_path)]
+    extracted = extractor.run(image_path, prompt_extra=qr_lines)
     on_event(StageEvent(stage=Stage.EXTRACT, status="finished"))
 
     # Stamped before enrichment so enrich_record's revalidation covers it too.

@@ -141,17 +141,25 @@ class Extractor:
         self._model_id = model_id
         self._on_usage = on_usage
 
-    def run(self, image_path: Path) -> DarwinCoreRecord:
+    def run(
+        self, image_path: Path, prompt_extra: list[str] | None = None
+    ) -> DarwinCoreRecord:
         """Read the specimen image at ``image_path`` into a sparse record.
+
+        ``prompt_extra`` holds extra prompt lines appended to :data:`PROMPT`, for
+        facts the caller knows about this one image and the model must not
+        second-guess -- QR payloads, currently.
 
         Only label-readable terms are filled; the enrichment stage resolves the
         rest. Raises :class:`ExtractionError` when the endpoint returns no parsed
         reading, so the caller can record a failed job rather than a blank record.
         """
+        prompt = "\n".join([PROMPT, *(prompt_extra or [])])
+
         completion = self._client.chat.completions.parse(
             model=self._model_id,
             messages=[
-                {"role": "system", "content": PROMPT},
+                {"role": "system", "content": prompt},
                 {
                     "role": "user",
                     "content": [
