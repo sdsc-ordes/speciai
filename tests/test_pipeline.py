@@ -1,5 +1,6 @@
 """pipeline.run emits stage events in order and returns a DarwinCoreRecord."""
 
+import json
 from pathlib import Path
 
 import pytest
@@ -81,3 +82,39 @@ def test_run_adds_no_prompt_lines_without_a_qr_code(monkeypatch):
     run(Path("specimen.jpg"), extractor)
 
     assert extractor.prompt_extra == []
+
+
+# A structured payload, cut down to the fields this test needs.
+QR_RECORD = json.dumps({"g": "Stilbum", "s": "calens", "id": "Paolo Rosa"})
+
+
+def test_a_structured_qr_code_overrides_the_enriched_record(monkeypatch):
+    # GBIF matched the label's misreading; the QR code is what the curator typed.
+    monkeypatch.setattr(
+        pipeline_mod,
+        "enrich_record",
+        lambda doc: doc.model_copy(
+            update={"genus": "Stilbon", "scientificName": "Stilbon calens"}
+        ),
+    )
+    monkeypatch.setattr(pipeline_mod, "read_qr_codes", lambda path: [QR_RECORD])
+
+    record = run(Path("specimen.jpg"), FakeExtractor())
+
+    assert record.genus == "Stilbum"
+    assert record.scientificName == "Stilbum calens"
+    assert record.identifiedBy == "Paolo Rosa"
+
+
+def test_a_structured_qr_code_adds_no_prompt_line(monkeypatch):
+    # It is applied to the record instead, so the model never sees it.
+    monkeypatch.setattr(pipeline_mod, "enrich_record", lambda doc: doc)
+    monkeypatch.setattr(
+        pipeline_mod, "read_qr_codes", lambda path: [QR_RECORD, "ETHZ-ENT0082619"]
+    )
+    extractor = FakeExtractor()
+
+    record = run(Path("specimen.jpg"), extractor)
+
+    assert extractor.prompt_extra == [f"{QR_LINE} ETHZ-ENT0082619"]
+    assert record.genus == "Stilbum"

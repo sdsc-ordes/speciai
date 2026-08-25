@@ -102,12 +102,55 @@ to run one locally, serve it yourself (vLLM, llama.cpp, Ollama) and point
 
 ## QR codes
 
-Any QR code pinned with the specimen is decoded (zxing-cpp) before stage 1 and
-appended to the extraction prompt as data the model must treat as valid. A
-curator typed the payload in, so it outranks the model's own reading of the
-label. Two codes on one image are both reported, in reading order, and an image
-without one changes nothing. Only QR codes are read: a linear accession barcode
-states something else and must not be passed off as QR data.
+Any QR code pinned with the specimen is decoded (zxing-cpp) before stage 1. A
+curator typed the payload in, so it outranks both the model's reading of the
+label and the enrichment lookups. Two codes on one image are both read, in
+reading order, and an image without one changes nothing. Only QR codes are read:
+a linear accession barcode states something else and must not be passed off as
+QR data.
+
+A payload comes in one of two shapes.
+
+**A structured record**, holding Darwin Core fields under short keys:
+
+```json
+{
+  "m1p": "[ETHZ Entomology]",
+  "m2v": "1.0",
+  "f": "Chrysididae",
+  "b": "Chrysidinae",
+  "t": "Chrysidini",
+  "g": "Stilbum",
+  "s": "calens",
+  "u": "subcalens",
+  "a": "Linsenmaier, 1951",
+  "id": "Paolo Rosa",
+  "idD": "2019",
+  "x": "Female"
+}
+```
+
+These fields are written onto the record after enrichment, replacing whatever
+the model read or GBIF matched. The model never sees them.
+
+| Key | Field             | Key   | Field                  |
+| --- | ----------------- | ----- | ---------------------- |
+| `f` | `family`          | `u`   | `infraspecificEpithet` |
+| `b` | `subfamily`       | `id`  | `identifiedBy`         |
+| `t` | `tribe`           | `idD` | `dateIdentified`       |
+| `g` | `genus`           | `x`   | `sex`                  |
+| `s` | `specificEpithet` |       |                        |
+
+`a` (authority) and the name parts compose two more fields, so the example above
+yields `scientificName` = `Stilbum calens subcalens` and
+`scientificNameAuthorship` = `Stilbum calens subcalens (Linsenmaier, 1951)`.
+`m1p` (provider) and `m2v` (schema version) are discarded, unknown keys are
+logged and skipped, and a value the schema refuses is dropped on its own rather
+than costing the record. No `verbatim*` field is ever touched: the QR code is
+not the label.
+
+**Anything else**, such as a bare `ETHZ-ENT0082619`, is appended to the
+extraction prompt as data the model must treat as valid.
 
 ## Web review UI
 

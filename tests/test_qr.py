@@ -1,12 +1,19 @@
-"""read_qr_codes decodes every QR code in an image, in reading order."""
+"""QR codes: decoding an image, and mapping a structured payload to a record."""
 
+import json
 from pathlib import Path
 
 import pytest
 import zxingcpp
 from PIL import Image, UnidentifiedImageError
 
-from speciai.qr import read_qr_codes
+from speciai.qr import (
+    apply_qr_fields,
+    parse_qr_record,
+    read_qr_codes,
+    split_qr_payloads,
+)
+from speciai.schema import DarwinCoreRecord
 
 # Pixels per barcode module. Large enough for the decoder to read the codes back.
 SCALE = 6
@@ -75,3 +82,149 @@ def test_an_unreadable_file_propagates(tmp_path):
 
     with pytest.raises(UnidentifiedImageError):
         read_qr_codes(path)
+
+
+# The payload shape ETHZ Entomology prints, with every key filled.
+FULL_PAYLOAD = json.dumps(
+    {
+        "m1p": "[ETHZ Entomology]",
+        "m2v": "1.0",
+        "f": "Chrysididae",
+        "b": "Chrysidinae",
+        "t": "Chrysidini",
+        "g": "Stilbum",
+        "s": "calens",
+        "u": "subcalens",
+        "a": "Linsenmaier, 1951",
+        "id": "Paolo Rosa",
+        "idD": "2019",
+        "x": "Female",
+    }
+)
+
+
+def test_a_full_payload_maps_to_every_field():
+    assert parse_qr_record(FULL_PAYLOAD) == {
+        "family": "Chrysididae",
+        "subfamily": "Chrysidinae",
+        "tribe": "Chrysidini",
+        "genus": "Stilbum",
+        "specificEpithet": "calens",
+        "infraspecificEpithet": "subcalens",
+        "identifiedBy": "Paolo Rosa",
+        "dateIdentified": "2019",
+        "sex": "Female",
+        "scientificName": "Stilbum calens subcalens",
+        "scientificNameAuthorship": "Stilbum calens subcalens (Linsenmaier, 1951)",
+    }
+
+
+def test_the_provider_and_schema_version_are_discarded():
+    fields = parse_qr_record(FULL_PAYLOAD)
+
+    assert "[ETHZ Entomology]" not in fields.values()
+    assert "1.0" not in fields.values()
+
+
+def test_a_payload_without_a_subspecies_composes_a_binomial():
+    payload = json.dumps({"g": "Papilio", "s": "machaon", "a": "Linnaeus, 1758"})
+
+    fields = parse_qr_record(payload)
+
+    assert fields["scientificName"] == "Papilio machaon"
+    assert fields["scientificNameAuthorship"] == "Papilio machaon (Linnaeus, 1758)"
+
+
+def test_no_authority_leaves_the_authorship_to_gbif():
+    fields = parse_qr_record(json.dumps({"g": "Papilio", "s": "machaon"}))
+
+    assert fields["scientificName"] == "Papilio machaon"
+    assert "scientificNameAuthorship" not in fields
+
+
+def test_blank_values_count_as_absent():
+    payload = json.dumps({"g": "Papilio", "s": "machaon", "u": " ", "x": ""})
+
+    fields = parse_qr_record(payload)
+
+    assert fields == {
+        "genus": "Papilio",
+        "specificEpithet": "machaon",
+        "scientificName": "Papilio machaon",
+    }
+
+
+def test_an_unknown_key_is_skipped_not_fatal():
+    payload = json.dumps({"g": "Papilio", "zz": "from a later schema version"})
+
+    assert parse_qr_record(payload) == {
+        "genus": "Papilio",
+        "scientificName": "Papilio",
+    }
+
+
+def test_a_payload_of_only_metadata_holds_no_fields():
+    # Still a record, so the caller must not pass it to the prompt as text.
+    assert parse_qr_record(json.dumps({"m1p": "[ETHZ Entomology]"})) == {}
+
+
+@pytest.mark.parametrize(
+    "payload",
+    [
+        "ETHZ-ENT0082619",
+        "Zygaena filipendulae",
+        '{"not": "our shape"}',
+        "[1, 2, 3]",
+        '"a bare json string"',
+        "{unclosed",
+    ],
+)
+def test_other_payloads_are_not_records(payload):
+    assert parse_qr_record(payload) is None
+
+
+def test_split_separates_records_from_free_text():
+    fields, plain = split_qr_payloads([FULL_PAYLOAD, "ETHZ-ENT0082619"])
+
+    assert fields["genus"] == "Stilbum"
+    assert plain == ["ETHZ-ENT0082619"]
+
+
+def test_split_lets_a_later_record_win():
+    first = json.dumps({"g": "Stilbum", "f": "Chrysididae"})
+    second = json.dumps({"g": "Papilio"})
+
+    fields, plain = split_qr_payloads([first, second])
+
+    assert fields == {
+        "genus": "Papilio",
+        "family": "Chrysididae",
+        "scientificName": "Papilio",
+    }
+    assert plain == []
+
+
+def test_qr_fields_override_the_enriched_record():
+    enriched = DarwinCoreRecord(genus="Wrong", verbatimIdentification="as read")
+
+    record = apply_qr_fields(enriched, {"genus": "Stilbum"})
+
+    assert record.genus == "Stilbum"
+    # The QR is not the label, so the as-read value stands.
+    assert record.verbatimIdentification == "as read"
+
+
+def test_a_value_the_schema_refuses_is_dropped_alone(caplog):
+    fields = {"sex": "Weiblich", "genus": "Stilbum"}
+
+    record = apply_qr_fields(DarwinCoreRecord(), fields)
+
+    assert record.sex is None
+    assert record.genus == "Stilbum"
+    assert "sex" in caplog.text
+
+
+def test_an_empty_overlay_returns_the_record_unchanged():
+    enriched = DarwinCoreRecord(genus="Stilbum")
+
+    assert apply_qr_fields(enriched, {}) is enriched

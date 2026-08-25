@@ -33,7 +33,7 @@ from speciai.pipeline import run as pipeline_run
 ROOT = Path(__file__).resolve().parents[2]
 IMAGES = ROOT / "examples" / "bugs"
 OUT_DIR = ROOT / "runs"
-BASE_URL = "https://inference.rcp.epfl.ch/v1"
+BASE_URL = "https://inference-rcp.epfl.ch/v1"
 VARIANT = "llm-combined"
 
 # Models that can read a photo. The first two led the earlier sweep at 45.1% and 43.7%.

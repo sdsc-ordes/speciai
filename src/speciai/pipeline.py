@@ -15,7 +15,7 @@ from typing import Literal
 
 from speciai.enrich import enrich_record
 from speciai.extract import Extractor
-from speciai.qr import read_qr_codes
+from speciai.qr import apply_qr_fields, read_qr_codes, split_qr_payloads
 from speciai.schema import DarwinCoreRecord
 
 # One prompt line per QR payload. A curator typed the payload in, so the model is
@@ -51,8 +51,11 @@ def run(
 ) -> DarwinCoreRecord:
     """Run one image through both stages, emitting start/finish events.
 
-    QR codes on the image are decoded first and passed to the extractor as extra
-    prompt lines. An image without one changes nothing.
+    QR codes on the image are decoded first. A code holding a structured record is
+    applied to the fields at the very end, overriding what the model read and what
+    enrichment looked up, because a curator typed those values in. Any other code is
+    passed to the extractor as an extra prompt line. An image without a code changes
+    nothing.
 
     ``media_url`` is the photo's canonical location, recorded as ``associatedMedia``
     so every record points back at the image it was read from -- it is the key the
@@ -60,7 +63,8 @@ def run(
     has no URL, because a record that cannot name its source photo is unusable.
     """
     on_event(StageEvent(stage=Stage.EXTRACT, status="started"))
-    qr_lines = [QR_PROMPT_LINE.format(data=data) for data in read_qr_codes(image_path)]
+    qr_fields, qr_texts = split_qr_payloads(read_qr_codes(image_path))
+    qr_lines = [QR_PROMPT_LINE.format(data=text) for text in qr_texts]
     extracted = extractor.run(image_path, prompt_extra=qr_lines)
     on_event(StageEvent(stage=Stage.EXTRACT, status="finished"))
 
@@ -73,4 +77,4 @@ def run(
     record = enrich_record(extracted)
     on_event(StageEvent(stage=Stage.ENRICH, status="finished"))
 
-    return record
+    return apply_qr_fields(record, qr_fields)
