@@ -26,7 +26,6 @@ def test_create_app_injects_extractor_and_registry():
     assert isinstance(app, FastAPI)
     # State is populated lazily on startup; exercise via TestClient lifespan.
     with TestClient(app) as client:
-        # The injected model must be the one used (not a freshly built one).
         assert client.app.state.extractor is fake_extractor
         assert client.app.state.jobs is not None
 
@@ -161,7 +160,6 @@ def test_review_renders_record(monkeypatch):
     assert "Papilio machaon" in resp.text
     assert "Switzerland" in resp.text
     assert 'name="scientificName"' in resp.text
-    # The page wires the image panel to the job's image endpoint.
     assert f"/jobs/{job_id}/image" in resp.text
     # Re-derivable verbatim sources expose a re-derive control.
     assert 'data-source="locality"' in resp.text

@@ -36,10 +36,7 @@ OUT_DIR = ROOT / "runs"
 BASE_URL = "https://inference-rcp.epfl.ch/v1"
 VARIANT = "llm-combined"
 
-# Models that can read a photo. The first two led the earlier sweep at 45.1% and 43.7%.
 MODELS = [
-    # "google/gemma-4-31B-it",
-    # "Qwen/Qwen3-VL-235B-A22B-Instruct",
     "Qwen/Qwen3.8-27B-fp8",
 ]
 

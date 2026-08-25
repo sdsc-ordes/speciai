@@ -51,7 +51,7 @@ def test_run_records_the_media_url(monkeypatch):
 
 
 def test_run_falls_back_to_the_file_name(monkeypatch):
-    # A record that cannot name its source photo is unusable, so this is never blank.
+    """A record that cannot name its source photo is unusable, so this is never blank."""
     monkeypatch.setattr(pipeline_mod, "enrich_record", lambda doc: doc)
 
     record = run(Path("/tmp/uploads/137671.jpg"), FakeExtractor())

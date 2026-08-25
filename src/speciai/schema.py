@@ -44,7 +44,6 @@ class DarwinCoreRecord(BaseModel):
 
     model_config = ConfigDict(extra="forbid")
 
-    # --- Identification ---
     verbatimIdentification: str | None = Field(
         default=None,
         description="Verbatim taxonomic identification as written on the label.",
@@ -85,7 +84,6 @@ class DarwinCoreRecord(BaseModel):
         default=None, description="Nomenclatural type status (e.g. 'holotype')."
     )
 
-    # --- Collection event ---
     verbatimEventDate: str | None = Field(
         default=None, description="Verbatim collection date as written on the label."
     )
@@ -98,7 +96,6 @@ class DarwinCoreRecord(BaseModel):
         default=None, description="Collector(s) of the specimen."
     )
 
-    # --- Locality ---
     verbatimLocality: str | None = Field(
         default=None, description="Verbatim locality as written on the label."
     )
@@ -114,7 +111,6 @@ class DarwinCoreRecord(BaseModel):
         default=None, description="State / province / canton."
     )
 
-    # --- Coordinates ---
     verbatimCoordinates: str | None = Field(
         default=None, description="Verbatim coordinates as written on the label."
     )
@@ -134,7 +130,6 @@ class DarwinCoreRecord(BaseModel):
         default=None, ge=0, description="Horizontal coordinate uncertainty, in metres."
     )
 
-    # --- Organism ---
     sex: Literal[SEX_VALUES] | None = Field(
         default=None, description="Sex of the specimen."
     )
@@ -145,7 +140,6 @@ class DarwinCoreRecord(BaseModel):
         default=None, description="Free-text remarks about the organism."
     )
 
-    # --- Catalog & record ---
     catalogNumber: str | None = Field(
         default=None,
         description="Unique identifier for the specimen within the collection.",
@@ -161,7 +155,6 @@ class DarwinCoreRecord(BaseModel):
         description="Preparation/preservation method (e.g. 'pinned', 'in ethanol').",
     )
 
-    # --- Provenance ---
     verbatimLabel: str | None = Field(
         default=None,
         description="Full verbatim transcription of the specimen label text.",

@@ -54,7 +54,6 @@ def fetch_gbif_species(scientific_name: str) -> dict[str, str] | None:
         usage = data['usage']
     except KeyError:
         return None
-    # Give up if we're hitting a higher order taxon
     if usage['rank'] != "SPECIES":
         return None
 
