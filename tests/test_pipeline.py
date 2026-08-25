@@ -118,3 +118,20 @@ def test_a_structured_qr_code_adds_no_prompt_line(monkeypatch):
 
     assert extractor.prompt_extra == [f"{QR_LINE} ETHZ-ENT0082619"]
     assert record.genus == "Stilbum"
+
+
+def test_run_sets_the_collection_constants_last(monkeypatch):
+    monkeypatch.setattr(pipeline_mod, "enrich_record", lambda doc: doc)
+
+    record = run(Path("specimen.jpg"), FakeExtractor())
+
+    assert record.kingdom == "Animalia"
+    assert record.phylum == "Arthropoda"
+
+
+def test_run_can_skip_the_constants(monkeypatch):
+    monkeypatch.setattr(pipeline_mod, "enrich_record", lambda doc: doc)
+
+    record = run(Path("specimen.jpg"), FakeExtractor(), constants=None)
+
+    assert record.kingdom is None

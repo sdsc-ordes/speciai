@@ -157,6 +157,32 @@ not the label.
 **Anything else**, such as a bare `ETHZ-ENT0082619`, is appended to the
 extraction prompt as data the model must treat as valid.
 
+## Post-processing
+
+Fields that are the same for every specimen in a collection are set last of all,
+after extraction, enrichment and the QR codes, by
+`speciai.postprocess.apply_constants`. The defaults are:
+
+| Field     | Value        |
+| --------- | ------------ |
+| `kingdom` | `Animalia`   |
+| `phylum`  | `Arthropoda` |
+
+A constant replaces whatever the pipeline read or matched, since no label or
+lookup knows the collection better. A replacement of a value that differed is
+logged, because it usually means an identification went wrong further up.
+
+`pipeline.run` takes the mapping as its `constants` argument, so a caller can
+set its own fields, or pass `None` to skip the step:
+
+```python
+run(image, extractor, constants={"kingdom": "Animalia", "preparations": "pinned"})
+run(image, extractor, constants=None)
+```
+
+A field name no record has, or a value the schema refuses, raises rather than
+landing quietly in every record of the run.
+
 ## Web review UI
 
 Install the dependencies and start the server:

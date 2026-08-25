@@ -7,7 +7,7 @@ raises on stage failure -- callers decide how to record the error.
 
 from __future__ import annotations
 
-from collections.abc import Callable
+from collections.abc import Callable, Mapping
 from dataclasses import dataclass
 from enum import Enum
 from pathlib import Path
@@ -15,6 +15,7 @@ from typing import Literal
 
 from speciai.enrich import enrich_record
 from speciai.extract import Extractor
+from speciai.postprocess import DEFAULT_CONSTANTS, apply_constants
 from speciai.qr import apply_qr_fields, read_qr_codes, split_qr_payloads
 from speciai.schema import DarwinCoreRecord
 
@@ -48,6 +49,7 @@ def run(
     extractor: Extractor,
     on_event: Callable[[StageEvent], None] = _noop,
     media_url: str | None = None,
+    constants: Mapping[str, str] | None = DEFAULT_CONSTANTS,
 ) -> DarwinCoreRecord:
     """Run one image through both stages, emitting start/finish events.
 
@@ -55,6 +57,9 @@ def run(
     written onto the fields at the very end, over what the model read and what
     enrichment looked up. Any other code becomes an extra prompt line. An image
     without a code changes nothing.
+
+    ``constants`` are the fields the collection sets on every record, applied last.
+    Pass ``None`` to skip that step; see :mod:`speciai.postprocess`.
 
     ``media_url`` is the photo's canonical location, recorded as ``associatedMedia``
     so every record points back at the image it was read from -- it is the key the
@@ -76,4 +81,5 @@ def run(
     record = enrich_record(extracted)
     on_event(StageEvent(stage=Stage.ENRICH, status="finished"))
 
-    return apply_qr_fields(record, qr_fields)
+    record = apply_qr_fields(record, qr_fields)
+    return apply_constants(record, constants)
