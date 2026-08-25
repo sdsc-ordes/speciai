@@ -480,6 +480,10 @@ TEMPLATE = """<!doctype html>
   .v-wrong {{ color: var(--series-2); }}
   .v-missing {{ color: var(--muted); }}
   .v-spurious {{ color: var(--series-4); }}
+  /* Neither side had a value. Shown so a photo can be followed across every field,
+     dimmed so it never competes with a real outcome. */
+  .v-empty {{ color: var(--muted); opacity: .55; font-weight: 400; }}
+  tr.blank th, tr.blank td {{ opacity: .62; }}
 </style>
 </head>
 <body data-runs="{names}" data-details="{details}">
@@ -585,7 +589,9 @@ function panel(field) {
     const name = url
       ? `<a href="${url}" target="_blank" rel="noreferrer">${photo.asset}</a>`
       : photo.asset;
-    return `<tr><td>${name}</td><td>${escape(photo.want)}</td>${cells}</tr>`;
+    const blank = Object.values(photo.runs).every((r) => r.outcome === "empty");
+    return `<tr class="${blank ? "blank" : ""}"><td>${name}</td>` +
+           `<td>${escape(photo.want)}</td>${cells}</tr>`;
   }).join("");
   return `<table class="drilltable"><thead><tr><th>photo</th><th>sheet says</th>${head}</tr>` +
          `</thead><tbody>${rows}</tbody></table>`;
