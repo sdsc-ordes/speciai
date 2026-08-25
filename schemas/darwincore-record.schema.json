@@ -508,7 +508,10 @@
     "sex": {
       "anyOf": [
         {
-          "enum": ["Female", "Male"],
+          "enum": [
+            "Female",
+            "Male"
+          ],
           "type": "string"
         },
         {
