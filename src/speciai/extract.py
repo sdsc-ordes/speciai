@@ -52,15 +52,26 @@ Rules:
   about the taxon, the collector or the place.
 - verbatim* fields hold the text exactly as written, including abbreviations,
   punctuation and misspellings.
-- verbatimLabel holds the full transcription of every label, one label per line.
+- verbatimLabel holds the full transcription of every label, one label per line,
+  including determination and control labels.
 - Dates: give the precision the label shows and no more. "1987" stays 1987;
   "V.1987" becomes 1987-05; only a full date becomes 1987-05-02. Never invent a
   month or a day.
 - Roles: "leg.", "coll." or a name beside a collection date is recordedBy.
-  "det." or "rev." is identifiedBy, and its date is dateIdentified.
+  "det." or "rev." is identifiedBy, and its date is dateIdentified. When a label
+  carries several determinations, report the most recent one.
 - verbatimCoordinates holds a grid reference as written; put its system (e.g.
   "Swiss CH1903", "UTM") in verbatimCoordinateSystem when the label names one.
-- verbatimIdentification is the taxon name as written, without the author.
+- verbatimLocality holds place names and administrative hierarchy only. Leave out
+  elevation and coordinates.
+- verbatimIdentification is the taxon name as written, including the author and year
+  exactly as printed, brackets included: "Zygaena filipendulae (Linnaeus, 1758)".
+- infraspecificEpithet is the subspecies or form name when the label gives a trinomen.
+- catalogNumber is the institutional accession number complete with its prefix, e.g.
+  "ETHZ-ENT0082619". otherCatalogNumbers is only for a genuinely different number,
+  never a reformatting of the same one.
+- typeStatus only carries an explicit designation ("holotype", "paratype"). Leave it
+  null otherwise; do not describe the specimen.
 """
 
 
@@ -83,6 +94,7 @@ class _LabelReading(BaseModel):
     verbatimCoordinates: str | None = None
     verbatimCoordinateSystem: str | None = None
     verbatimEventDate: str | None = None
+    infraspecificEpithet: str | None = None
     eventDate: str | None = Field(default=None, pattern=ISO_DATE_PATTERN)
     dateIdentified: str | None = Field(default=None, pattern=ISO_DATE_PATTERN)
     recordedBy: str | None = None
