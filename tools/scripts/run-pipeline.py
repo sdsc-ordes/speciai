@@ -143,8 +143,18 @@ def write_usage(batch: Path, usage: list[tuple]) -> Path:
     return report
 
 
+def write_failures(batch: Path, failures: list[tuple]) -> Path:
+    """Write every photo that produced no record, and why."""
+    report = batch / "failures.csv"
+    with report.open("w", newline="", encoding="utf-8") as handle:
+        csv.writer(handle).writerows(
+            [("model", "image", "error", "message"), *failures]
+        )
+    return report
+
+
 def run_model(model: str, images: list[Path], media: dict[str, str]) -> tuple:
-    """Extract and enrich every photo with one model; return (rows, usage row)."""
+    """Extract and enrich every photo with one model; return (rows, usage, failures)."""
     spend = [0, 0]  # prompt, completion
 
     def tally(usage) -> None:
@@ -160,7 +170,7 @@ def run_model(model: str, images: list[Path], media: dict[str, str]) -> tuple:
     )
 
     started = time.perf_counter()
-    rows, failed = [], 0
+    rows, failures = [], []
     for index, image in enumerate(images, start=1):
         print(f"  [{index}/{len(images)}] {image.name}", file=sys.stderr, flush=True)
         try:
@@ -168,7 +178,7 @@ def run_model(model: str, images: list[Path], media: dict[str, str]) -> tuple:
             record = pipeline_run(image, extractor, media_url=media.get(image.name))
         except Exception as error:  # keep going through the rest of the batch
             print(f"    failed: {type(error).__name__}: {error}", file=sys.stderr)
-            failed += 1
+            failures.append((model, image.name, type(error).__name__, str(error)))
             continue
         rows.append(json.loads(record.model_dump_json(exclude_none=True)))
 
@@ -178,7 +188,7 @@ def run_model(model: str, images: list[Path], media: dict[str, str]) -> tuple:
         model,
         VARIANT,
         len(rows),
-        failed,
+        len(failures),
         spend[0] + spend[1],
         spend[0],
         spend[1],
@@ -186,7 +196,7 @@ def run_model(model: str, images: list[Path], media: dict[str, str]) -> tuple:
         seconds,
         "",
     )
-    return rows, usage_row
+    return rows, usage_row, failures
 
 
 def main() -> int:
@@ -203,10 +213,11 @@ def main() -> int:
     batch.mkdir(parents=True, exist_ok=True)
     print(f"batch -> {batch}", file=sys.stderr)
 
-    usage = []
+    usage, failures = [], []
     for model in MODELS:
         print(f"\n{model} [{VARIANT}]", file=sys.stderr)
-        rows, usage_row = run_model(model, images, media)
+        rows, usage_row, model_failures = run_model(model, images, media)
+        failures.extend(model_failures)
         out = batch / f"{slug(model)}-{VARIANT}.json"
         out.write_text(json.dumps(rows, indent=2), encoding="utf-8")
         print(
@@ -218,6 +229,8 @@ def main() -> int:
 
     report = write_usage(batch, usage)
     print(f"\nusage -> {report}", file=sys.stderr)
+    if failures:
+        print(f"failures -> {write_failures(batch, failures)}", file=sys.stderr)
     return 1 if any(row[3] for row in usage) else 0
 
 

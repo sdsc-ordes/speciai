@@ -55,7 +55,16 @@ def test_dates_accept_iso_full_partial_and_interval(value):
 
 
 @pytest.mark.parametrize(
-    "value", ["12 May 1987", "1987-05-02T00:00:00", "05/1987", "1987-5", "circa 1987"]
+    "value",
+    [
+        "12 May 1987",
+        "1987-05-02T00:00:00",
+        "05/1987",
+        "1987-5",
+        "circa 1987",
+        "2003-05-06/1200",
+        "1987-05/1988",
+    ],
 )
 def test_dates_reject_non_iso_values(value):
     with pytest.raises(ValidationError):

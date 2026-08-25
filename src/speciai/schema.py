@@ -27,8 +27,10 @@ from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field
 
-_ISO_DATE = r"\d{4}(?:-\d{2}(?:-\d{2})?)?"
-ISO_DATE_PATTERN = rf"^{_ISO_DATE}(?:/{_ISO_DATE})?$"
+_YEAR, _MONTH, _DAY = r"\d{4}", r"\d{4}-\d{2}", r"\d{4}-\d{2}-\d{2}"
+ISO_DATE_PATTERN = (
+    rf"^(?:{_DAY}(?:/{_DAY})?|{_MONTH}(?:/{_MONTH})?|{_YEAR}(?:/{_YEAR})?)$"
+)
 SEX_VALUES = ("Female", "Male")
 
 

@@ -16,7 +16,9 @@ TAXONOMIC_RANKS = {
 # contract: callers (e.g. the review form's re-derive) key off it, and a test
 # asserts the helper never emits a key outside this set. Ranks are listed in a fixed
 # (high-to-low) order so the output is deterministic; the assert keeps that list in
-# sync with ``TAXONOMIC_RANKS``.
+# sync with ``TAXONOMIC_RANKS``. Note that subfamily and tribe never arrive from this
+# endpoint -- the match returns class/family/genus/kingdom/order/phylum/species only,
+# so filling them needs a second call to /species/{key}/parents.
 SPECIES_FIELDS: tuple[str, ...] = (
     "scientificName",
     "scientificNameAuthorship",
