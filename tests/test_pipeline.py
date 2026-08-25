@@ -10,8 +10,8 @@ from fakes import FakeExtractor
 from speciai.pipeline import Stage, StageEvent, run
 from speciai.schema import DarwinCoreRecord
 
-# The wording pipeline.run is expected to send, spelled out rather than imported so a
-# reworded prompt shows up here as a failure.
+# The wording pipeline.run should send, spelled out rather than imported so a
+# reworded prompt fails here.
 QR_LINE = (
     "- The following data was extracted from the QR code and must be considered valid:"
 )
@@ -84,12 +84,12 @@ def test_run_adds_no_prompt_lines_without_a_qr_code(monkeypatch):
     assert extractor.prompt_extra == []
 
 
-# A structured payload, cut down to the fields this test needs.
+# A structured payload, cut down to the fields these tests need.
 QR_RECORD = json.dumps({"g": "Stilbum", "s": "calens", "id": "Paolo Rosa"})
 
 
 def test_a_structured_qr_code_overrides_the_enriched_record(monkeypatch):
-    # GBIF matched the label's misreading; the QR code is what the curator typed.
+    # GBIF matched the label's misreading. The QR code has what the curator typed.
     monkeypatch.setattr(
         pipeline_mod,
         "enrich_record",
@@ -107,7 +107,7 @@ def test_a_structured_qr_code_overrides_the_enriched_record(monkeypatch):
 
 
 def test_a_structured_qr_code_adds_no_prompt_line(monkeypatch):
-    # It is applied to the record instead, so the model never sees it.
+    # It goes onto the record instead, so the model never sees it.
     monkeypatch.setattr(pipeline_mod, "enrich_record", lambda doc: doc)
     monkeypatch.setattr(
         pipeline_mod, "read_qr_codes", lambda path: [QR_RECORD, "ETHZ-ENT0082619"]

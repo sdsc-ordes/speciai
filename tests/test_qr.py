@@ -15,7 +15,7 @@ from speciai.qr import (
 )
 from speciai.schema import DarwinCoreRecord
 
-# Pixels per barcode module. Large enough for the decoder to read the codes back.
+# Pixels per barcode square, large enough for the decoder to read the codes back.
 SCALE = 6
 
 
@@ -67,8 +67,8 @@ def test_an_image_without_a_qr_code_is_not_a_failure(tmp_path):
 
 
 def test_a_linear_barcode_is_not_reported_as_qr_data(tmp_path):
-    # A Code128 accession barcode states something else. Reporting it as QR data
-    # would hand the model a number no QR code gave it.
+    # A Code128 accession barcode states something else, and must not be reported
+    # as QR data.
     path = tmp_path / "code128.png"
     barcode_image("0082619", zxingcpp.BarcodeFormat.Code128).save(path)
 
@@ -76,7 +76,7 @@ def test_a_linear_barcode_is_not_reported_as_qr_data(tmp_path):
 
 
 def test_an_unreadable_file_propagates(tmp_path):
-    # Swallowing this would report "no QR code" for an image never opened.
+    # Swallowing this would report "no QR code" for an image never read.
     path = tmp_path / "not-an-image.png"
     path.write_text("nope")
 
@@ -84,7 +84,7 @@ def test_an_unreadable_file_propagates(tmp_path):
         read_qr_codes(path)
 
 
-# The payload shape ETHZ Entomology prints, with every key filled.
+# The payload ETHZ Entomology prints, with every key filled.
 FULL_PAYLOAD = json.dumps(
     {
         "m1p": "[ETHZ Entomology]",
@@ -146,8 +146,7 @@ def test_a_payload_without_a_subspecies_composes_a_binomial():
     ],
 )
 def test_authorship_is_unwrapped_however_the_payload_stored_it(authority):
-    # Composing a name around an already-parenthesised authority would otherwise
-    # give "Brachytron pratense ((Muller, 1764))".
+    # Without the unwrapping this gives "Brachytron pratense ((Muller, 1764))".
     payload = json.dumps({"g": "Brachytron", "s": "pratense", "a": authority})
 
     fields = parse_qr_record(payload)
@@ -159,7 +158,7 @@ def test_authorship_is_unwrapped_however_the_payload_stored_it(authority):
 @pytest.mark.parametrize(
     "authority",
     [
-        "(M\u00fcller, 1764",  # unbalanced, so nothing wraps anything
+        "(M\u00fcller, 1764",  # no closing bracket
         "(A, 1900) or (B, 1901)",  # the first bracket closes before the end
     ],
 )
@@ -220,7 +219,7 @@ def test_an_unknown_key_is_skipped_not_fatal():
 
 
 def test_a_payload_of_only_metadata_holds_no_fields():
-    # Still a record, so the caller must not pass it to the prompt as text.
+    # Still a record, so it must not reach the prompt as text.
     assert parse_qr_record(json.dumps({"m1p": "[ETHZ Entomology]"})) == {}
 
 
@@ -266,7 +265,7 @@ def test_qr_fields_override_the_enriched_record():
     record = apply_qr_fields(enriched, {"genus": "Stilbum"})
 
     assert record.genus == "Stilbum"
-    # The QR is not the label, so the as-read value stands.
+    # The QR code is not the label, so the as-read value stands.
     assert record.verbatimIdentification == "as read"
 
 

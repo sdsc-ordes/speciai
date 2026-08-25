@@ -18,7 +18,7 @@ from speciai.extract import Extractor
 from speciai.qr import apply_qr_fields, read_qr_codes, split_qr_payloads
 from speciai.schema import DarwinCoreRecord
 
-# One prompt line per QR payload. A curator typed the payload in, so the model is
+# One prompt line per free-text QR payload. A curator typed it in, so the model is
 # told to trust it over its own reading of the label.
 QR_PROMPT_LINE = (
     "- The following data was extracted from the QR code and must be considered"
@@ -52,10 +52,9 @@ def run(
     """Run one image through both stages, emitting start/finish events.
 
     QR codes on the image are decoded first. A code holding a structured record is
-    applied to the fields at the very end, overriding what the model read and what
-    enrichment looked up, because a curator typed those values in. Any other code is
-    passed to the extractor as an extra prompt line. An image without a code changes
-    nothing.
+    written onto the fields at the very end, over what the model read and what
+    enrichment looked up. Any other code becomes an extra prompt line. An image
+    without a code changes nothing.
 
     ``media_url`` is the photo's canonical location, recorded as ``associatedMedia``
     so every record points back at the image it was read from -- it is the key the

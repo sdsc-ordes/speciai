@@ -1,17 +1,14 @@
 """Read the QR codes attached to a specimen and turn them into record fields.
 
-Collections often pin a QR code beside the handwritten labels, holding data a
-curator already typed in: a species name, a collection code. That data is more
-reliable than the label pixels, so it wins over anything the pipeline reads or
-looks up.
+A QR code pinned beside the labels holds data a curator already typed in, so it
+wins over anything the pipeline reads from the pixels or looks up.
 
-A payload comes in one of two shapes. Some codes hold a JSON record of Darwin Core
-fields (see ``QR_FIELD_MAP``); those are applied to the record directly, after
-extraction and enrichment. Everything else is free text, and only the extraction
-prompt can make sense of it.
+Some codes hold a JSON record of Darwin Core fields (see ``QR_FIELD_MAP``), applied
+to the record after extraction and enrichment. Any other payload is free text that
+only the extraction prompt can use.
 
-Only QR codes are read. A linear barcode (Code128, ITF) states something else, and
-passing one off as QR data would hand the model a number it was never given.
+Only QR codes are read. A linear barcode (Code128, ITF) states something else and
+must not be passed off as QR data.
 """
 
 from __future__ import annotations
@@ -29,30 +26,28 @@ from speciai.schema import DarwinCoreRecord
 
 _log = logging.getLogger(__name__)
 
-# Micro QR counts as a QR code. zxingcpp wants a tuple here, not "|".
+# Micro QR counts as a QR code. zxingcpp wants a tuple, not "|".
 QR_FORMATS = (zxingcpp.BarcodeFormat.QRCode, zxingcpp.BarcodeFormat.MicroQRCode)
 
 
 def read_qr_codes(image_path: Path) -> list[str]:
     """Decode every QR code in the image at ``image_path``.
 
-    Return the payloads top to bottom, then left to right, so the result depends on
-    the image and not on the order the decoder happened to find them.
+    Return the payloads top to bottom, then left to right, so the result does not
+    depend on the order the decoder found them.
 
-    An image with no QR code returns an empty list, which is the normal case rather
-    than a failure. Raises ``OSError`` when the path is not a readable image, the
-    same failure the extractor hits on the next line.
+    No QR code means an empty list, which is normal rather than a failure. Raises
+    ``OSError`` when the file is not a readable image.
     """
     with Image.open(image_path) as image:
         codes = zxingcpp.read_barcodes(image.convert("RGB"), formats=QR_FORMATS)
 
     codes.sort(key=lambda code: (code.position.top_left.y, code.position.top_left.x))
-    # An empty payload tells the model nothing.
     return [code.text for code in codes if code.text.strip()]
 
 
-# Darwin Core field per key of a structured payload. The keys are cryptic because the
-# whole record has to fit in a code small enough to pin next to a specimen.
+# Darwin Core field for each key of a structured payload. The keys are short so the
+# record fits in a small printed code.
 QR_FIELD_MAP = {
     "f": "family",
     "b": "subfamily",
@@ -65,13 +60,13 @@ QR_FIELD_MAP = {
     "x": "sex",
 }
 
-# Keys no field takes as-is. "a" (authority) feeds the two name fields below;
-# "m1p" (provider) and "m2v" (schema version) describe the payload itself.
+# Keys with no field of their own: "a" (authority) feeds the name fields below,
+# "m1p" (provider) and "m2v" (schema version) are dropped.
 QR_EXTRA_KEYS = frozenset({"a", "m1p", "m2v"})
 
 _KNOWN_KEYS = frozenset(QR_FIELD_MAP) | QR_EXTRA_KEYS
 
-# Name parts of a payload, in the order a name is written.
+# Name parts, in the order a name is written.
 _NAME_KEYS = ("g", "s", "u")
 
 _BRACKET_PAIRS = {"(": ")", "[": "]"}
@@ -80,13 +75,12 @@ _BRACKET_PAIRS = {"(": ")", "[": "]"}
 def _unwrap_brackets(text: str) -> str:
     """Strip brackets that wrap the whole of ``text``, however many layers deep.
 
-    Payloads store the authority inconsistently, sometimes already parenthesised.
-    Composing a name around that gives "Brachytron pratense ((Muller, 1764))", so
-    the wrapping comes off first.
+    Some payloads store the authority already in brackets, and composing a name
+    around that would give "Brachytron pratense ((Muller, 1764))".
 
-    Only a pair enclosing everything is removed, and only when it is balanced. That
-    leaves "[Denis & Schiffermuller], 1775" alone, where the brackets mark an
-    inferred author rather than wrapping the string.
+    A pair comes off only when it is balanced and encloses everything, which leaves
+    "[Denis & Schiffermuller], 1775" alone. There the brackets are part of the
+    authorship.
     """
     while text[:1] in _BRACKET_PAIRS:
         closing = _BRACKET_PAIRS[text[0]]
@@ -110,16 +104,16 @@ def parse_qr_record(payload: str) -> dict[str, str] | None:
     """Map a structured QR payload to Darwin Core fields.
 
     Return ``None`` when the payload is not one of these records: text that is not
-    a JSON object, or an object holding none of the known keys. A recognised payload
-    with nothing usable in it returns an empty dict, because it is still a record
-    and must not be handed to the prompt as text.
+    a JSON object, or an object with none of the known keys. A payload with known
+    keys but nothing usable in them returns an empty dict, since it is still a
+    record and must not go to the prompt as text.
 
     Blank values count as absent. Unknown keys are logged and skipped, so a payload
-    from a newer schema version still yields the fields this one understands.
+    from a newer version still yields the fields this one knows.
 
     The name parts and the authority compose ``scientificName``, for example
-    "Stilbum calens subcalens (Linsenmaier, 1951)", while
-    ``scientificNameAuthorship`` holds the authority on its own.
+    "Stilbum calens subcalens (Linsenmaier, 1951)". ``scientificNameAuthorship``
+    holds the authority alone.
     """
     try:
         decoded = json.loads(payload)
@@ -153,8 +147,8 @@ def parse_qr_record(payload: str) -> dict[str, str] | None:
 def split_qr_payloads(payloads: Iterable[str]) -> tuple[dict[str, str], list[str]]:
     """Split decoded QR payloads into record fields and free text.
 
-    Structured payloads are merged in the order they were read, so a later code wins
-    a field an earlier one also set.
+    Structured payloads merge in the order they were read, so a later code wins a
+    field an earlier one also set.
     """
     fields: dict[str, str] = {}
     plain: list[str] = []
@@ -172,9 +166,9 @@ def apply_qr_fields(
 ) -> DarwinCoreRecord:
     """Overlay QR fields on a record, keeping everything the schema accepts.
 
-    A curator typed these values in, so they replace what the pipeline read from the
-    label or looked up. A value the schema refuses, such as a sex outside its allowed
-    list, is logged and dropped: one bad field must not cost the whole record.
+    A curator typed these values in, so they replace what the pipeline read or
+    looked up. A value the schema refuses, such as an unknown sex, is logged and
+    dropped on its own: one bad field must not cost the whole record.
     """
     if not fields:
         return record
@@ -185,6 +179,7 @@ def apply_qr_fields(
         rejected = {
             str(item["loc"][0]) for item in error.errors() if item["loc"]
         } & set(fields)
+        # None of our fields was named, so dropping them would not help.
         if not rejected:
             raise
         _log.warning("dropping QR fields the schema rejected: %s", sorted(rejected))
