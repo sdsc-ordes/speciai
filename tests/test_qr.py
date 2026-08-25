@@ -114,8 +114,8 @@ def test_a_full_payload_maps_to_every_field():
         "identifiedBy": "Paolo Rosa",
         "dateIdentified": "2019",
         "sex": "Female",
-        "scientificName": "Stilbum calens subcalens",
-        "scientificNameAuthorship": "Stilbum calens subcalens (Linsenmaier, 1951)",
+        "scientificName": "Stilbum calens subcalens (Linsenmaier, 1951)",
+        "scientificNameAuthorship": "Linsenmaier, 1951",
     }
 
 
@@ -131,8 +131,57 @@ def test_a_payload_without_a_subspecies_composes_a_binomial():
 
     fields = parse_qr_record(payload)
 
-    assert fields["scientificName"] == "Papilio machaon"
-    assert fields["scientificNameAuthorship"] == "Papilio machaon (Linnaeus, 1758)"
+    assert fields["scientificName"] == "Papilio machaon (Linnaeus, 1758)"
+    assert fields["scientificNameAuthorship"] == "Linnaeus, 1758"
+
+
+@pytest.mark.parametrize(
+    "authority",
+    [
+        "M\u00fcller, 1764",
+        "(M\u00fcller, 1764)",
+        "((M\u00fcller, 1764))",
+        "[M\u00fcller, 1764]",
+        " ( M\u00fcller, 1764 ) ",
+    ],
+)
+def test_authorship_is_unwrapped_however_the_payload_stored_it(authority):
+    # Composing a name around an already-parenthesised authority would otherwise
+    # give "Brachytron pratense ((Muller, 1764))".
+    payload = json.dumps({"g": "Brachytron", "s": "pratense", "a": authority})
+
+    fields = parse_qr_record(payload)
+
+    assert fields["scientificNameAuthorship"] == "M\u00fcller, 1764"
+    assert fields["scientificName"] == "Brachytron pratense (M\u00fcller, 1764)"
+
+
+@pytest.mark.parametrize(
+    "authority",
+    [
+        "(M\u00fcller, 1764",  # unbalanced, so nothing wraps anything
+        "(A, 1900) or (B, 1901)",  # the first bracket closes before the end
+    ],
+)
+def test_a_bracket_that_wraps_nothing_is_left_alone(authority):
+    payload = json.dumps({"g": "Brachytron", "a": authority})
+
+    assert parse_qr_record(payload)["scientificNameAuthorship"] == authority
+
+
+def test_brackets_marking_an_inferred_author_survive():
+    # The brackets are part of the authorship, not a wrapper around it.
+    payload = json.dumps(
+        {"g": "Ematurga", "s": "atomaria", "a": "([Denis & Schifferm\u00fcller], 1775)"}
+    )
+
+    fields = parse_qr_record(payload)
+
+    assert fields["scientificNameAuthorship"] == "[Denis & Schifferm\u00fcller], 1775"
+    assert (
+        fields["scientificName"]
+        == "Ematurga atomaria ([Denis & Schifferm\u00fcller], 1775)"
+    )
 
 
 def test_no_authority_leaves_the_authorship_to_gbif():
@@ -140,6 +189,13 @@ def test_no_authority_leaves_the_authorship_to_gbif():
 
     assert fields["scientificName"] == "Papilio machaon"
     assert "scientificNameAuthorship" not in fields
+
+
+def test_an_authority_without_a_name_composes_nothing():
+    fields = parse_qr_record(json.dumps({"f": "Chrysididae", "a": "Linnaeus, 1758"}))
+
+    assert fields["scientificNameAuthorship"] == "Linnaeus, 1758"
+    assert "scientificName" not in fields
 
 
 def test_blank_values_count_as_absent():

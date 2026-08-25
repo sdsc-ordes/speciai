@@ -65,14 +65,45 @@ QR_FIELD_MAP = {
     "x": "sex",
 }
 
-# Keys no field takes as-is. "a" (authority) is folded into the composed name fields
-# below; "m1p" (provider) and "m2v" (schema version) describe the payload itself.
+# Keys no field takes as-is. "a" (authority) feeds the two name fields below;
+# "m1p" (provider) and "m2v" (schema version) describe the payload itself.
 QR_EXTRA_KEYS = frozenset({"a", "m1p", "m2v"})
 
 _KNOWN_KEYS = frozenset(QR_FIELD_MAP) | QR_EXTRA_KEYS
 
 # Name parts of a payload, in the order a name is written.
 _NAME_KEYS = ("g", "s", "u")
+
+_BRACKET_PAIRS = {"(": ")", "[": "]"}
+
+
+def _unwrap_brackets(text: str) -> str:
+    """Strip brackets that wrap the whole of ``text``, however many layers deep.
+
+    Payloads store the authority inconsistently, sometimes already parenthesised.
+    Composing a name around that gives "Brachytron pratense ((Muller, 1764))", so
+    the wrapping comes off first.
+
+    Only a pair enclosing everything is removed, and only when it is balanced. That
+    leaves "[Denis & Schiffermuller], 1775" alone, where the brackets mark an
+    inferred author rather than wrapping the string.
+    """
+    while text[:1] in _BRACKET_PAIRS:
+        closing = _BRACKET_PAIRS[text[0]]
+        depth = 0
+        wraps_all = False
+        for index, char in enumerate(text):
+            if char == text[0]:
+                depth += 1
+            elif char == closing:
+                depth -= 1
+                if depth == 0:
+                    wraps_all = index == len(text) - 1
+                    break
+        if not wraps_all:
+            break
+        text = text[1:-1].strip()
+    return text
 
 
 def parse_qr_record(payload: str) -> dict[str, str] | None:
@@ -85,6 +116,10 @@ def parse_qr_record(payload: str) -> dict[str, str] | None:
 
     Blank values count as absent. Unknown keys are logged and skipped, so a payload
     from a newer schema version still yields the fields this one understands.
+
+    The name parts and the authority compose ``scientificName``, for example
+    "Stilbum calens subcalens (Linsenmaier, 1951)", while
+    ``scientificNameAuthorship`` holds the authority on its own.
     """
     try:
         decoded = json.loads(payload)
@@ -106,12 +141,12 @@ def parse_qr_record(payload: str) -> dict[str, str] | None:
         QR_FIELD_MAP[key]: value for key, value in values.items() if key in QR_FIELD_MAP
     }
 
+    authorship = _unwrap_brackets(values.get("a", ""))
+    if authorship:
+        fields["scientificNameAuthorship"] = authorship
     name = " ".join(values[key] for key in _NAME_KEYS if key in values)
     if name:
-        fields["scientificName"] = name
-    authority = values.get("a")
-    if authority:
-        fields["scientificNameAuthorship"] = f"{name} ({authority})".strip()
+        fields["scientificName"] = f"{name} ({authorship})" if authorship else name
     return fields
 
 

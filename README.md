@@ -142,8 +142,13 @@ the model read or GBIF matched. The model never sees them.
 | `s` | `specificEpithet` |       |                        |
 
 `a` (authority) and the name parts compose two more fields, so the example above
-yields `scientificName` = `Stilbum calens subcalens` and
-`scientificNameAuthorship` = `Stilbum calens subcalens (Linsenmaier, 1951)`.
+yields `scientificName` = `Stilbum calens subcalens (Linsenmaier, 1951)` and
+`scientificNameAuthorship` = `Linsenmaier, 1951`. Payloads store the authority
+inconsistently, so brackets wrapping the whole of it come off first: a payload
+holding `(Muller, 1764)` still yields `Brachytron pratense (Muller, 1764)` and
+not a doubled pair. Brackets that are part of the authorship survive, as in
+`Ematurga atomaria ([Denis & Schiffermuller], 1775)`.
+
 `m1p` (provider) and `m2v` (schema version) are discarded, unknown keys are
 logged and skipped, and a value the schema refuses is dropped on its own rather
 than costing the record. No `verbatim*` field is ever touched: the QR code is
