@@ -138,7 +138,7 @@ def _completed_job(monkeypatch):
     monkeypatch.setattr(
         pipeline_mod,
         "enrich_record",
-        lambda doc: DarwinCoreRecord(
+        lambda doc, name=None: DarwinCoreRecord(
             scientificName="Papilio machaon", country="Switzerland"
         ),
     )

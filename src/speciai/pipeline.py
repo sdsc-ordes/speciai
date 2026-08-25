@@ -66,10 +66,10 @@ def run(
 ) -> Result:
     """Run one image through both stages, emitting start/finish events.
 
-    QR codes on the image are decoded first. A code holding a structured record is
-    written onto the fields at the very end, over what the model read and what
-    enrichment looked up. Any other code becomes an extra prompt line. An image
-    without a code changes nothing.
+    QR codes on the image are decoded first. A code holding a structured record both
+    names the taxon the authorities are asked about and is written onto the fields at
+    the very end, over what the model read and what enrichment looked up. Any other
+    code becomes an extra prompt line. An image without a code changes nothing.
 
     Post-processing runs once every producer has had its say -- so a date supplied
     by a QR code is widened like any other -- and the collection's ``constants`` are
@@ -93,7 +93,7 @@ def run(
     )
 
     on_event(StageEvent(stage=Stage.ENRICH, status="started"))
-    record = enrich_record(extracted)
+    record = enrich_record(extracted, qr_fields.get("scientificName"))
     on_event(StageEvent(stage=Stage.ENRICH, status="finished"))
 
     record, derived = postprocess(apply_qr_fields(record, qr_fields), constants)

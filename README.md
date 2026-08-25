@@ -133,6 +133,14 @@ A payload comes in one of two shapes.
 These fields are written onto the record after enrichment, replacing whatever
 the model read or GBIF matched. The model never sees them.
 
+The composed name is also the name the taxonomic lookup is asked about, in place
+of the label's reading. That matters when the two disagree: ask GBIF about a
+misread label and then write the curator's name over the answer, and the record
+ends up holding a chrysidid wasp in family `Papilionidae` and order
+`Lepidoptera`, with nothing to say the two halves describe different animals.
+Only `order`, `class`, `kingdom` and `phylum` have no key of their own, so a
+complete payload cannot paper over it either.
+
 | Key | Field             | Key   | Field                  |
 | --- | ----------------- | ----- | ---------------------- |
 | `f` | `family`          | `u`   | `infraspecificEpithet` |

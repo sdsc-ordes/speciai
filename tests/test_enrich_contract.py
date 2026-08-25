@@ -43,6 +43,26 @@ def test_enrich_record_preserves_verbatim_and_adds_derived(monkeypatch):
     assert record.genus == "Papilio"
 
 
+def test_the_identification_lookup_can_be_asked_about_a_better_name(monkeypatch):
+    asked: list[str] = []
+
+    def spy(name):
+        asked.append(name)
+        return {"genus": "Stilbum"}
+
+    monkeypatch.setattr(enrich_mod, "_AUTHORITIES", (("verbatimIdentification", spy),))
+
+    record = enrich_mod.enrich_record(
+        DarwinCoreRecord(verbatimIdentification="Papilio machaon"),
+        identification="Stilbum calens",
+    )
+
+    assert asked == ["Stilbum calens"]
+    assert record.genus == "Stilbum"
+    # The override changes the question, never the evidence.
+    assert record.verbatimIdentification == "Papilio machaon"
+
+
 def test_enrich_record_skips_lookups_without_a_verbatim_source(monkeypatch):
     def boom(text):
         raise AssertionError("lookup ran without a verbatim source")

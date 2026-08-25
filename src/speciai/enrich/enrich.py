@@ -19,15 +19,28 @@ _AUTHORITIES = (
 )
 
 
-def enrich_record(record: DarwinCoreRecord) -> DarwinCoreRecord:
+def enrich_record(
+    record: DarwinCoreRecord, identification: str | None = None
+) -> DarwinCoreRecord:
     """Geocode the locality and match the identification against GBIF.
+
+    ``identification`` overrides the name the taxonomic lookup is asked about, for a
+    caller holding a better one than the label -- a curator's QR code. The lookup has
+    to be asked about the taxon the record will end up naming: ask it about the
+    label's reading and then overwrite the name, and the classification left behind
+    describes a different organism than the record claims to hold.
+
+    ``verbatimIdentification`` itself is untouched, here as everywhere: it is what
+    the label says, and the override changes only the question, not the evidence.
 
     Verbatim terms are never overwritten. A failed lookup is logged and skipped,
     leaving that authority's terms unresolved rather than discarding the record.
     """
+    overrides = {"verbatimIdentification": identification}
+
     derived: dict[str, object] = {}
     for verbatim_term, resolve in _AUTHORITIES:
-        verbatim = getattr(record, verbatim_term)
+        verbatim = overrides.get(verbatim_term) or getattr(record, verbatim_term)
         if not verbatim:
             continue
         try:
