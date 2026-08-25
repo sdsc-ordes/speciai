@@ -67,9 +67,7 @@ async def create_job(request: Request, image: UploadFile) -> Response:
     # Off the event loop: a multi-MB synchronous write would stall open SSE streams.
     await asyncio.to_thread(job.image_path.write_bytes, bytes(data))
 
-    task = asyncio.create_task(
-        run_job(job, request.app.state.engine, request.app.state.classifier)
-    )
+    task = asyncio.create_task(run_job(job, request.app.state.extractor))
     _BACKGROUND_TASKS.add(task)
     task.add_done_callback(_BACKGROUND_TASKS.discard)
     return RedirectResponse(url=f"/jobs/{job.id}", status_code=303)
@@ -175,12 +173,12 @@ _NUMERIC = {"number", "integer"}
 DERIVATIONS: dict[str, dict] = {
     "locality": {
         "verbatim": "verbatimLocality",
-        "run": lambda text: enrich_locations([text]),
+        "run": enrich_locations,
         "output_fields": LOCATION_FIELDS,
     },
     "identification": {
         "verbatim": "verbatimIdentification",
-        "run": lambda text: enrich_species(text.split()),
+        "run": enrich_species,
         "output_fields": SPECIES_FIELDS,
     },
 }
@@ -226,11 +224,21 @@ def _build_group_specs() -> list[dict]:
             prop = props[name]
             types = prop.get("anyOf", [{"type": prop.get("type")}])
             is_number = any(t.get("type") in _NUMERIC for t in types)
+            # A closed vocabulary in the schema becomes a select, so the constraint
+            # is visible while editing instead of only failing at export.
+            options = next((t["enum"] for t in types if "enum" in t), None)
+            if is_number:
+                kind = "number"
+            elif options:
+                kind = "select"
+            else:
+                kind = "text"
             specs.append(
                 {
                     "name": name,
                     "label": prop.get("title", name),
-                    "type": "number" if is_number else "text",
+                    "type": kind,
+                    "options": options,
                     "role": role,
                     "derive": _DERIVE_SOURCE_BY_FIELD.get(name),
                 }

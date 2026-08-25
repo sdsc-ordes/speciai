@@ -48,3 +48,7 @@ __pycache*
 .yamllint.yaml
 .typos.toml
 .pre-commit-config.yaml
+
+# Example data (downloaded specimen photos, ETH export).
+examples/
+runs/*

@@ -65,3 +65,11 @@ test *args:
 [group('general')]
 run *args:
     uv run --all-groups --all-extras speciai "$@"
+
+fetch-images:
+    uv run --with openpyxl tools/scripts/fetch-images.py
+
+run-benchmark:
+    uv run tools/scripts/run-pipeline.py
+    uv run --with openpyxl tools/scripts/compare-models.py
+    uv run --with openpyxl tools/scripts/report.py

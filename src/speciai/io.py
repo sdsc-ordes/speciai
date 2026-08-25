@@ -35,8 +35,7 @@ def load_records(path: str | Path) -> list[DarwinCoreRecord]:
 
 
 def format_cell(value: object) -> str:
-    """Render a field as a string: `None` -> ''.
-    """
+    """Render a field as a string: `None` -> ''."""
     if value is None:
         return ""
     if isinstance(value, float) and value.is_integer():

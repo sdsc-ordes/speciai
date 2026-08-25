@@ -607,8 +607,10 @@ a:focus {
 
 /* Field inputs */
 .field input,
+.field select,
 .record-form input[type="text"],
-.record-form input[type="number"] {
+.record-form input[type="number"],
+.record-form select {
   width: 100%;
   padding: 8px 12px;
   font-family: "Switzer", system-ui, sans-serif;
@@ -623,7 +625,9 @@ a:focus {
 }
 
 .field input:focus,
-.record-form input:focus {
+.field select:focus,
+.record-form input:focus,
+.record-form select:focus {
   outline: none;
   border-color: var(--op-blue);
   box-shadow: 0 0 0 2px color-mix(in srgb, var(--op-blue) 20%, transparent);

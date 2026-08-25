@@ -21,15 +21,15 @@ def test_create_and_get():
 
 @pytest.mark.asyncio
 async def test_run_job_success(monkeypatch):
-    def fake_run(image_path, engine, classifier, on_event):
-        on_event(StageEvent(stage=Stage.OCR, status="started"))
+    def fake_run(image_path, extractor, on_event):
+        on_event(StageEvent(stage=Stage.EXTRACT, status="started"))
         on_event(StageEvent(stage=Stage.ENRICH, status="finished"))
         return DarwinCoreRecord(scientificName="Papilio machaon")
 
     monkeypatch.setattr(jobs_mod, "pipeline_run", fake_run)
     reg = JobRegistry()
     job = reg.create(Path("/tmp/x.jpg"))
-    await run_job(job, engine=object(), classifier=object())
+    await run_job(job, extractor=object())
 
     drained = []
     while True:
@@ -40,16 +40,16 @@ async def test_run_job_success(monkeypatch):
     assert job.status is JobStatus.DONE
     assert job.record.scientificName == "Papilio machaon"
     # The full event sequence is delivered in order, before the sentinel.
-    assert [e.stage for e in drained] == [Stage.OCR, Stage.ENRICH]
+    assert [e.stage for e in drained] == [Stage.EXTRACT, Stage.ENRICH]
     assert job.stage is Stage.ENRICH
 
 
 @pytest.mark.asyncio
 async def test_run_job_tracks_stage_timing(monkeypatch):
-    def fake_run(image_path, engine, classifier, on_event):
-        on_event(StageEvent(stage=Stage.OCR, status="started"))
-        on_event(StageEvent(stage=Stage.OCR, status="finished"))
-        on_event(StageEvent(stage=Stage.CLASSIFY, status="started"))
+    def fake_run(image_path, extractor, on_event):
+        on_event(StageEvent(stage=Stage.EXTRACT, status="started"))
+        on_event(StageEvent(stage=Stage.EXTRACT, status="finished"))
+        on_event(StageEvent(stage=Stage.ENRICH, status="started"))
         return DarwinCoreRecord(scientificName="Papilio machaon")
 
     monkeypatch.setattr(jobs_mod, "pipeline_run", fake_run)
@@ -61,21 +61,21 @@ async def test_run_job_tracks_stage_timing(monkeypatch):
     )
     reg = JobRegistry()
     job = reg.create(Path("/tmp/x.jpg"))
-    await run_job(job, engine=object(), classifier=object())
+    await run_job(job, extractor=object())
 
-    assert job.stage_started_at == {Stage.OCR: 10.0, Stage.CLASSIFY: 13.0}
-    assert job.stage_finished_at == {Stage.OCR: 12.0}
+    assert job.stage_started_at == {Stage.EXTRACT: 10.0, Stage.ENRICH: 13.0}
+    assert job.stage_finished_at == {Stage.EXTRACT: 12.0}
 
 
 @pytest.mark.asyncio
 async def test_run_job_error(monkeypatch):
-    def boom(image_path, engine, classifier, on_event):
-        raise RuntimeError("ocr exploded")
+    def boom(image_path, extractor, on_event):
+        raise RuntimeError("extraction exploded")
 
     monkeypatch.setattr(jobs_mod, "pipeline_run", boom)
     reg = JobRegistry()
     job = reg.create(Path("/tmp/x.jpg"))
-    await run_job(job, engine=object(), classifier=object())
+    await run_job(job, extractor=object())
     assert job.status is JobStatus.ERROR
-    assert "ocr exploded" in job.error
+    assert "extraction exploded" in job.error
     assert job.queue.get_nowait() is None  # terminal sentinel still emitted
