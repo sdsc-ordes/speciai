@@ -31,7 +31,7 @@ def test_run_emits_ordered_events_and_record(monkeypatch):
         lambda doc: DarwinCoreRecord(scientificName="Papilio machaon"),
     )
     events: list[StageEvent] = []
-    record = run(Path("specimen.jpg"), FakeExtractor(), events.append)
+    record = run(Path("specimen.jpg"), FakeExtractor(), events.append).record
 
     assert isinstance(record, DarwinCoreRecord)
     assert [(e.stage, e.status) for e in events] == [
@@ -45,7 +45,9 @@ def test_run_emits_ordered_events_and_record(monkeypatch):
 def test_run_records_the_media_url(monkeypatch):
     monkeypatch.setattr(pipeline_mod, "enrich_record", lambda doc: doc)
 
-    record = run(Path("137671.jpg"), FakeExtractor(), media_url="https://x/photo.jpg")
+    record = run(
+        Path("137671.jpg"), FakeExtractor(), media_url="https://x/photo.jpg"
+    ).record
 
     assert record.associatedMedia == "https://x/photo.jpg"
 
@@ -54,7 +56,7 @@ def test_run_falls_back_to_the_file_name(monkeypatch):
     """A record that cannot name its source photo is unusable, so this is never blank."""
     monkeypatch.setattr(pipeline_mod, "enrich_record", lambda doc: doc)
 
-    record = run(Path("/tmp/uploads/137671.jpg"), FakeExtractor())
+    record = run(Path("/tmp/uploads/137671.jpg"), FakeExtractor()).record
 
     assert record.associatedMedia == "137671.jpg"
 
@@ -99,7 +101,7 @@ def test_a_structured_qr_code_overrides_the_enriched_record(monkeypatch):
     )
     monkeypatch.setattr(pipeline_mod, "read_qr_codes", lambda path: [QR_RECORD])
 
-    record = run(Path("specimen.jpg"), FakeExtractor())
+    record = run(Path("specimen.jpg"), FakeExtractor()).record
 
     assert record.genus == "Stilbum"
     assert record.scientificName == "Stilbum calens"
@@ -114,7 +116,7 @@ def test_a_structured_qr_code_adds_no_prompt_line(monkeypatch):
     )
     extractor = FakeExtractor()
 
-    record = run(Path("specimen.jpg"), extractor)
+    record = run(Path("specimen.jpg"), extractor).record
 
     assert extractor.prompt_extra == [f"{QR_LINE} ETHZ-ENT0082619"]
     assert record.genus == "Stilbum"
@@ -123,7 +125,7 @@ def test_a_structured_qr_code_adds_no_prompt_line(monkeypatch):
 def test_run_sets_the_collection_constants_last(monkeypatch):
     monkeypatch.setattr(pipeline_mod, "enrich_record", lambda doc: doc)
 
-    record = run(Path("specimen.jpg"), FakeExtractor())
+    record = run(Path("specimen.jpg"), FakeExtractor()).record
 
     assert record.kingdom == "Animalia"
     assert record.phylum == "Arthropoda"
@@ -132,6 +134,6 @@ def test_run_sets_the_collection_constants_last(monkeypatch):
 def test_run_can_skip_the_constants(monkeypatch):
     monkeypatch.setattr(pipeline_mod, "enrich_record", lambda doc: doc)
 
-    record = run(Path("specimen.jpg"), FakeExtractor(), constants=None)
+    record = run(Path("specimen.jpg"), FakeExtractor(), constants=None).record
 
     assert record.kingdom is None

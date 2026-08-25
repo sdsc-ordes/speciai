@@ -37,8 +37,8 @@ def _cmd_extract(args: argparse.Namespace) -> None:
     )
 
     for image_path in args.images:
-        record = pipeline_run(image_path, extractor, media_url=_media_url(image_path))
-        print(record.model_dump_json(exclude_none=True))
+        result = pipeline_run(image_path, extractor, media_url=_media_url(image_path))
+        print(result.record.model_dump_json(exclude_none=True))
 
 
 def _cmd_enrich(args: argparse.Namespace) -> None:

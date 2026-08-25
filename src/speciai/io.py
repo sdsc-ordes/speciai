@@ -35,7 +35,12 @@ def load_records(path: str | Path) -> list[DarwinCoreRecord]:
 
 
 def format_cell(value: object) -> str:
-    """Render a field as a string: `None` -> ''."""
+    """Render a field as a CSV cell: ``None`` becomes an empty cell.
+
+    A float that holds a whole number loses its ``.0`` so a spreadsheet column of
+    metres reads "500" and not "500.0". This is a text rendering and applies to the
+    CSV only -- the JSON export keeps the typed value, where ``500.0`` is correct.
+    """
     if value is None:
         return ""
     if isinstance(value, float) and value.is_integer():

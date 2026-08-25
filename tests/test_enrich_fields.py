@@ -202,18 +202,6 @@ def test_parse_address_prefers_the_most_specific_locality(monkeypatch):
     result = geo_mod.parse_address(loc)
 
     assert result["locality"] == "Montricher-village"
-    assert result["continent"] == "Europe"
-
-
-def test_parse_address_leaves_continent_blank_for_an_unknown_code():
-    # An unrecognised country code must not fail the whole enrichment.
-    loc = SimpleNamespace(
-        raw={"address": {"village": "Nowhere", "country_code": "zz"}},
-        latitude=0.0,
-        longitude=0.0,
-    )
-
-    assert geo_mod.parse_address(loc)["continent"] is None
 
 
 def test_nominatim_is_asked_for_english(monkeypatch):
@@ -238,7 +226,8 @@ def test_nominatim_is_asked_for_english(monkeypatch):
     assert seen["addressdetails"] is True
 
 
-def test_parse_address_uppercases_the_country_code():
+def test_parse_address_reports_the_code_as_nominatim_gave_it():
+    """Casing and the continent are postprocess rules; this maps an address, only."""
     loc = SimpleNamespace(
         raw={"address": {"village": "Merishausen", "country_code": "ch"}},
         latitude=47.76,
@@ -247,5 +236,5 @@ def test_parse_address_uppercases_the_country_code():
 
     result = geo_mod.parse_address(loc)
 
-    assert result["countryCode"] == "CH"  # ISO 3166-1 alpha-2 is uppercase
-    assert result["continent"] == "Europe"
+    assert result["countryCode"] == "ch"
+    assert "continent" not in result

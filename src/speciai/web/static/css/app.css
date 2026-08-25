@@ -835,6 +835,11 @@ a:focus {
   background: color-mix(in srgb, var(--op-blue) 12%, transparent);
 }
 
+.badge-rule {
+  color: var(--op-green);
+  background: color-mix(in srgb, var(--op-green) 14%, transparent);
+}
+
 .badge-success {
   color: var(--op-success);
   background: color-mix(in srgb, var(--op-success) 12%, transparent);

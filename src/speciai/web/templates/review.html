@@ -4,7 +4,11 @@
   <span class="field-label">
     <span class="field-name">{{ f.label }}</span>
     {% if f.role == 'verbatim' %}<span class="badge">As read</span>{% endif %}
-    {% if f.role == 'interpreted' %}<span class="badge badge-info"
+    {% if f.decided %}<span
+      class="badge badge-rule"
+      title="Set by a post-processing rule, not read from the label"
+      >Auto-set</span
+    >{% elif f.role == 'interpreted' %}<span class="badge badge-info"
       >Inferred</span
     >{% endif %} {% if f.derive %}
     <button

@@ -172,7 +172,9 @@ def run_model(model: str, images: list[Path], media: dict[str, str]) -> tuple:
         print(f"  [{index}/{len(images)}] {image.name}", file=sys.stderr, flush=True)
         try:
             # media_url is the key compare-models.py pairs records to sheet rows on.
-            record = pipeline_run(image, extractor, media_url=media.get(image.name))
+            record = pipeline_run(
+                image, extractor, media_url=media.get(image.name)
+            ).record
         except Exception as error:  # keep going through the rest of the batch
             print(f"    failed: {type(error).__name__}: {error}", file=sys.stderr)
             failures.append((model, image.name, type(error).__name__, str(error)))

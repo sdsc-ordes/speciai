@@ -252,6 +252,16 @@ def test_sse_reconnect_after_completion(monkeypatch):
     assert '"stage":"extract"' not in second
 
 
+def test_review_marks_the_fields_post_processing_decided(monkeypatch):
+    with _completed_job(monkeypatch) as (client, job_id, _):
+        job = client.app.state.jobs.get(job_id)
+        job.derived = frozenset({"typeStatus"})
+        resp = client.get(f"/jobs/{job_id}/review")
+
+    assert resp.status_code == HTTPStatus.OK
+    assert "Auto-set" in resp.text
+
+
 def test_derive_locality_replaces_section(monkeypatch):
     monkeypatch.setitem(
         routes_mod.DERIVATIONS["locality"],

@@ -38,6 +38,8 @@ class Job:
     stage_started_at: dict[Stage, float] = field(default_factory=dict)
     stage_finished_at: dict[Stage, float] = field(default_factory=dict)
     record: DarwinCoreRecord | None = None
+    # Fields post-processing decided rather than read; badged on the review form.
+    derived: frozenset[str] = frozenset()
     error: str | None = None
     queue: "asyncio.Queue[StageEvent | None]" = field(default_factory=asyncio.Queue)
 
@@ -86,7 +88,9 @@ async def run_job(job: Job, extractor: Extractor) -> None:
         # Set job state from the worker thread; the coroutine only reads `job`
         # again after the thread joins, so plain attribute writes are safe.
         try:
-            job.record = pipeline_run(job.image_path, extractor, on_event)
+            result = pipeline_run(job.image_path, extractor, on_event)
+            job.record = result.record
+            job.derived = result.derived
             job.status = JobStatus.DONE
         except Exception as exc:  # boundary: turn any failure into job state
             job.status = JobStatus.ERROR

@@ -159,9 +159,53 @@ extraction prompt as data the model must treat as valid.
 
 ## Post-processing
 
-Fields that are the same for every specimen in a collection are set last of all,
-after extraction, enrichment and the QR codes, by
-`speciai.postprocess.apply_constants`. The defaults are:
+Once extraction, enrichment and the QR codes have all had their say, two steps
+correct the record. Neither touches the network, so both are cheap and safe to
+re-run -- the review form's re-derive does exactly that.
+
+### Rules
+
+`speciai.postprocess.apply_rules` fixes values the pipeline produced. Each fix
+is one row in `RULES`, declaring the fields it reads, the field it writes and
+the function between them:
+
+| Reads               | Writes           | Fix                                         |
+| ------------------- | ---------------- | ------------------------------------------- |
+| `countryCode`       | `countryCode`    | uppercase, since ISO 3166-1 alpha-2 is      |
+| `countryCode`       | `continent`      | look up the continent                       |
+| `decimalLatitude`   | `geodeticDatum`  | `WGS84`, but only with coordinates          |
+| `verbatimEventDate` | `eventDate`      | read the label's date, at its own precision |
+| `dateIdentified`    | `dateIdentified` | widen to the interval its precision denotes |
+| `typeStatus`        | `typeStatus`     | map onto the sheet's vocabulary, or default |
+
+Declaring reads and writes is what makes the table checkable. `validate_rules`
+raises at import unless all three hold: no rule writes a `verbatim*` term, every
+name is a real field, and no rule reads a value a later rule writes. A property
+test then runs 200 generated records through twice and asserts the second pass
+changes nothing -- a rule that drifts on re-application would corrupt a record a
+little more each time a reviewer pressed re-derive.
+
+A rule returns `None` to mean "no opinion", never "blank it" -- which is how an
+unfamiliar type status survives as the label had it.
+
+`postprocess` runs both steps in order and is what `pipeline.run` calls;
+`apply_rules` and `apply_constants` are public for a caller that wants one.
+
+`apply_rules` also reports which fields it decided. `pipeline.run` returns that
+as `Result.derived`, and the review form badges those fields `Auto-set`, so a
+reviewer can tell a value the pipeline worked out from one it read off the
+label:
+
+```python
+result = run(image, extractor)
+result.record    # the DarwinCoreRecord
+result.derived   # frozenset of fields post-processing set
+```
+
+### Constants
+
+Fields that are the same for every specimen in a collection are set last of all
+by `speciai.postprocess.apply_constants`. The defaults are:
 
 | Field     | Value        |
 | --------- | ------------ |

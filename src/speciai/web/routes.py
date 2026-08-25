@@ -24,6 +24,7 @@ from speciai.enrich.geo import LOCATION_FIELDS, enrich_locations
 from speciai.enrich.species import SPECIES_FIELDS, enrich_species
 from speciai.io import format_cell, write_csv
 from speciai.pipeline import Stage
+from speciai.postprocess import apply_rules
 from speciai.schema import FIELD_GROUPS, DarwinCoreRecord, json_schema_with_terms
 from speciai.web.jobs import JobStatus, run_job
 
@@ -202,12 +203,18 @@ def _run_derivation(source: str, verbatim: str) -> dict[str, str]:
     set is the helper's output fields minus the verbatim source itself (never
     blanked); fields the lookup no longer yields come back blank so the whole
     section is replaced.
+
+    The lookup's own output then goes through post-processing, exactly as it would
+    in a full run -- a country code arrives lowercase and no continent is derived
+    until a rule does it -- so re-deriving lands on the values the pipeline produces
+    rather than on the raw response.
     """
     spec = DERIVATIONS[source]
     text = verbatim.strip()
     derived = spec["run"](text) if text else {}
+    record, _ = apply_rules(DarwinCoreRecord.model_validate(derived))
     managed = (name for name in spec["output_fields"] if name != spec["verbatim"])
-    return {name: format_cell(derived.get(name)) for name in managed}
+    return {name: format_cell(getattr(record, name)) for name in managed}
 
 
 def _build_group_specs() -> list[dict]:
@@ -250,12 +257,19 @@ def _build_group_specs() -> list[dict]:
 _GROUP_SPECS = _build_group_specs()
 
 
-def _grouped_fields(values: dict, errors: dict | None = None) -> list[dict]:
+def _grouped_fields(
+    values: dict,
+    errors: dict | None = None,
+    derived: frozenset[str] = frozenset(),
+) -> list[dict]:
     """Fill the static group specs with a record's values.
 
     Each group is split into always-visible fields (the verbatim source, any
     populated field, or one carrying a validation error) and collapsible empty
     fields, so the form stays scannable without losing the ability to edit blanks.
+
+    ``derived`` names the fields post-processing set on this run, so the form can
+    say which values the pipeline decided rather than read off the label or look up.
     """
     errors = errors or {}
     groups = []
@@ -267,6 +281,7 @@ def _grouped_fields(values: dict, errors: dict | None = None) -> list[dict]:
                 **member,
                 "value": "" if raw is None else raw,
                 "error": errors.get(member["name"]),
+                "decided": member["name"] in derived,
             }
             keep = (
                 member["role"] == "verbatim" or field["value"] != "" or field["error"]
@@ -294,7 +309,10 @@ async def review(request: Request, job_id: str) -> HTMLResponse:
     return _templates(request).TemplateResponse(
         request,
         "review.html",
-        {"job_id": job_id, "groups": _grouped_fields(job.record.model_dump())},
+        {
+            "job_id": job_id,
+            "groups": _grouped_fields(job.record.model_dump(), derived=job.derived),
+        },
     )
 
 
