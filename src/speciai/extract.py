@@ -31,14 +31,12 @@ MAX_IMAGE_EDGE = 1536
 # Cap on the reply. The schema bounds the useful length; this only stops a model that
 # falls into a repetition loop from generating until its context runs out.
 MAX_TOKENS = 2048*8
-# vLLM-hosted reasoning models (the Qwen3 series among them) emit a reasoning trace
-# before the answer unless told not to, which multiplies latency per image and buys
-# nothing when the reply is a fixed schema. So the default is to tell them not to.
+# vLLM models like Qwen3 think out loud before answering unless told not to. That
+# costs time per image and adds nothing, because the reply is a fixed schema. So the
+# default is "off".
 #
-# ``chat_template_kwargs`` is a vLLM extension. Anthropic's OpenAI-compatible
-# endpoint ignores it (verified 2026-08-28: a request carrying it passes validation);
-# a provider that rejects an unknown body field instead needs ``"none"``, which sends
-# no extra body at all.
+# Only vLLM understands this field. Anthropic ignores it (checked 2026-08-28), but a
+# provider that rejects unknown fields needs "none", which sends nothing.
 DISABLE_THINKING: dict = {"chat_template_kwargs": {"enable_thinking": False}}
 ENABLE_THINKING: dict = {"chat_template_kwargs": {"enable_thinking": True}}
 NO_THINKING_FIELD: dict = {}
@@ -50,19 +48,18 @@ THINKING_CHOICES: dict[str, dict] = {
 DEFAULT_THINKING = "off"
 
 
-# Zero temperature is what makes a run reproducible, and every self-hosted model and
-# the OpenAI and Gemini endpoints accept it. The Claude 5 family does not: it rejects
-# sampling parameters outright, so the field has to be omittable.
+# Temperature zero is what makes a run repeatable. Most providers accept it, but the
+# Claude models refuse it, so it has to be possible to leave out.
 DEFAULT_TEMPERATURE = 0.0
 OMIT_TEMPERATURE = "none"
 
 
 def parse_temperature(value: str | None) -> float | None:
-    """Read a temperature setting; ``"none"`` means omit the field entirely.
+    """Read a temperature setting. "none" means leave the field out.
 
-    ``None`` or an empty value gives :data:`DEFAULT_TEMPERATURE`. Raise
-    ``ValueError`` for anything that is neither ``"none"`` nor a number, so a typo
-    is not silently read as "use the model's default".
+    Nothing set gives DEFAULT_TEMPERATURE. Raise ValueError for anything that is
+    neither "none" nor a number, so a typo does not quietly become the model's
+    own default.
     """
     if not value:
         return DEFAULT_TEMPERATURE
@@ -77,15 +74,12 @@ def parse_temperature(value: str | None) -> float | None:
 
 
 def thinking_extra_body(choice: str | None) -> dict:
-    """Map a thinking choice onto the request's ``extra_body``.
+    """Turn a thinking choice into the extra fields to send with the request.
 
-    ``None`` means :data:`DEFAULT_THINKING`: a configured nothing still asks the model
-    not to think, because a reasoning trace costs latency per image and the reply is a
-    fixed schema either way. ``"none"`` is how a caller sends no field at all, for a
-    provider that rejects one it does not define.
+    Nothing set means DEFAULT_THINKING, so the model is still told not to think.
+    "none" sends no field at all, for a provider that rejects unknown ones.
 
-    Raise ``ValueError`` for any other choice, rather than silently sending no toggle
-    to an endpoint the caller believed it had configured.
+    Raise ValueError for anything else, so a typo is not read as "send nothing".
     """
     if choice is None:
         choice = DEFAULT_THINKING
@@ -190,7 +184,7 @@ def image_data_url(image_path: Path) -> str:
 class Extractor:
     """Hold the endpoint configuration for repeated single-image extractions."""
 
-    def __init__(  # noqa: PLR0913 - each one is an independent endpoint setting
+    def __init__(  # noqa: PLR0913 - each one is a separate endpoint setting
         self,
         base_url: str,
         model_id: str,
@@ -208,12 +202,12 @@ class Extractor:
         receives each reply's token usage, for the cost accounting in
         ``tools/scripts/run-pipeline.py``.
 
-        ``extra_body`` holds provider-specific request fields, such as the vLLM
-        thinking toggle from :func:`thinking_extra_body`. It defaults to empty
-        because a field one provider defines is a 400 from the next.
+        ``extra_body`` carries fields only some providers understand, such as the
+        vLLM thinking toggle from ``thinking_extra_body``. It is empty by default,
+        because a field one provider defines is an error from the next.
 
-        ``temperature`` of ``None`` omits the field, for a model that refuses to be
-        told (see :func:`parse_temperature`).
+        A ``temperature`` of ``None`` leaves the field out, for a model that
+        refuses it. See ``parse_temperature``.
         """
         self._client = OpenAI(base_url=base_url, api_key=api_key, timeout=timeout)
         self._model_id = model_id
@@ -236,7 +230,7 @@ class Extractor:
         """
         prompt = "\n".join([PROMPT, *(prompt_extra or [])])
 
-        # Omitted rather than passed as None: a provider that rejects the parameter
+        # Left out rather than sent as None: a provider that rejects the field
         # rejects it whatever the value.
         sampling = (
             {} if self._temperature is None else {"temperature": self._temperature}

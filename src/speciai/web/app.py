@@ -23,7 +23,7 @@ _TEMPLATES_DIR = _WEB_DIR / "templates"
 _STATIC_DIR = _WEB_DIR / "static"
 
 
-def create_app(  # noqa: PLR0913 - each one is an independent endpoint setting
+def create_app(  # noqa: PLR0913 - each one is a separate endpoint setting
     extractor: Extractor | None = None,
     *,
     llm_base_url: str = "",
@@ -34,9 +34,9 @@ def create_app(  # noqa: PLR0913 - each one is an independent endpoint setting
 ) -> FastAPI:
     """Build the FastAPI app.
 
-    Pass ``extractor`` in tests to avoid calling the LLM; when omitted one is built
-    on startup from the endpoint settings, which are the ``Extractor`` arguments of
-    the same name.
+    Pass ``extractor`` in tests to avoid calling the LLM. Without one, it is built on
+    startup from the endpoint settings below, which are the ``Extractor`` arguments
+    of the same name.
     """
 
     @asynccontextmanager

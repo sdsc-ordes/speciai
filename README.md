@@ -98,9 +98,8 @@ to run one locally, serve it yourself (vLLM, llama.cpp, Ollama) and point
 ### Configuration
 
 Every option takes a flag or an environment variable, which `.env` can supply.
-The flag wins, then the variable, then the default -- so a deployment configures
-the endpoint once instead of on every invocation. An empty variable counts as
-unset.
+The flag wins, then the variable, then the default, so the endpoint is
+configured once instead of on every run. An empty variable counts as unset.
 
 | Flag             | Variable          | Default                            |
 | ---------------- | ----------------- | ---------------------------------- |

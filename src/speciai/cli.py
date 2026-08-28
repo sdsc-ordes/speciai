@@ -18,17 +18,17 @@ from speciai.extract import (
     thinking_extra_body,
 )
 
-# Any OpenAI-compatible endpoint serving a multimodal model works. EPFL's RCP
-# inference service is the default because it is what the benchmarks in `runs/` were
-# scored against; see README.md for the other providers.
+# Any OpenAI-compatible endpoint with a multimodal model works. EPFL's RCP service is
+# the default because every benchmark in `runs/` was scored against it. Other
+# providers are listed in README.md.
 DEFAULT_LLM_BASE_URL = "https://inference-rcp.epfl.ch/v1"
 
 
 def _env(name: str, default: str | None = None) -> str | None:
-    """Read an environment variable, treating an empty value as unset.
+    """Read an environment variable. An empty value counts as unset.
 
-    Compose and CI both pass a variable through as the empty string when the host
-    has not set it, which must mean "use the default" and not "the endpoint is ''".
+    Compose and CI pass a variable through as "" when the host has not set it. That
+    has to mean "use the default", not "the endpoint is an empty string".
     """
     return os.getenv(name) or default
 
@@ -42,12 +42,12 @@ def _temperature(value: str | None) -> float | None:
 
 
 def _add_llm_options(parser: argparse.ArgumentParser) -> None:
-    """Add the endpoint options every command that calls a model shares.
+    """Add the endpoint options shared by every command that calls a model.
 
-    Each one falls back to an environment variable, which ``.env`` can supply, so a
-    deployment configures the endpoint once instead of on every invocation. The API
-    key is deliberately env-only: a key in ``argv`` lands in the shell history and in
-    every process listing on the machine.
+    Each falls back to an environment variable, which ``.env`` can set, so the
+    endpoint is configured once instead of on every run. The API key has no flag on
+    purpose: a key on the command line ends up in the shell history and in every
+    process listing on the machine.
     """
     parser.add_argument(
         "--llm-base-url",
@@ -64,17 +64,17 @@ def _add_llm_options(parser: argparse.ArgumentParser) -> None:
         "--thinking",
         choices=sorted(THINKING_CHOICES),
         default=_env("LLM_THINKING", DEFAULT_THINKING),
-        help="Whether a vLLM-hosted reasoning model emits a thinking trace "
+        help="Whether a vLLM model thinks out loud before answering "
         f"(env: LLM_THINKING). Default: {DEFAULT_THINKING}. Use 'none' to send no "
-        "such field, for a provider that rejects one it does not define.",
+        "such field, for a provider that rejects unknown ones.",
     )
     parser.add_argument(
         "--temperature",
         type=_temperature,
         default=_temperature(_env("LLM_TEMPERATURE")),
         help=f"Sampling temperature, or {OMIT_TEMPERATURE!r} to send none at all "
-        "(env: LLM_TEMPERATURE). Default: 0.0, which keeps a run reproducible. "
-        "Claude models reject the parameter and need 'none'.",
+        "(env: LLM_TEMPERATURE). Default: 0.0, which keeps a run repeatable. "
+        "Claude models refuse the field and need 'none'.",
     )
 
 
@@ -131,8 +131,8 @@ def _cmd_serve(args: argparse.Namespace) -> None:
 
 
 def main() -> None:
-    # Before the parser is built: the endpoint options read their defaults from the
-    # environment as they are declared, so `.env` has to be loaded by then.
+    # Load before building the parser: the endpoint options read their defaults from
+    # the environment as they are declared, so `.env` must already be in place.
     load_dotenv()
 
     parser = argparse.ArgumentParser(description="speciai CLI")
@@ -158,8 +158,8 @@ def main() -> None:
     serve.set_defaults(func=_cmd_serve)
 
     args = parser.parse_args()
-    # No model id is right for every provider, so this one has no default. Checked
-    # here rather than with `required=True`, which would ignore LLM_MODEL.
+    # No model id suits every provider, so there is no default. Checked here rather
+    # than with `required=True`, which would ignore LLM_MODEL.
     if hasattr(args, "model") and not args.model:
         parser.error("a model id is required: pass --model or set LLM_MODEL")
     args.func(args)

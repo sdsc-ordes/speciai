@@ -1,8 +1,8 @@
-"""The endpoint is configurable, and nothing provider-specific is sent by default.
+"""The model endpoint is configurable, and every setting resolves as documented.
 
-The pipeline talks to any OpenAI-compatible provider. That only holds while a flag
-beats the environment beats the default, and while no vLLM-only request field is sent
-to a provider that would reject it.
+The pipeline talks to any OpenAI-compatible provider. That holds only while a flag
+beats the environment beats the default, and while a field only some providers
+understand is sent only when asked for.
 """
 
 import argparse
@@ -64,14 +64,14 @@ def test_a_blank_variable_is_unset_not_an_empty_endpoint(monkeypatch):
 
 
 def test_model_has_no_default(monkeypatch):
-    # No model id fits every provider, so main() rejects a missing one.
+    # No model id suits every provider, so main() rejects a missing one.
     monkeypatch.delenv("LLM_MODEL", raising=False)
     assert _parse([]).model is None
 
 
 def test_thinking_is_disabled_by_default(monkeypatch):
-    # Nothing configured must still mean no reasoning trace: it costs latency per
-    # image and buys nothing when the reply is a fixed schema.
+    # Nothing configured must still mean no thinking: it costs time per image and
+    # adds nothing when the reply is a fixed schema.
     monkeypatch.delenv("LLM_THINKING", raising=False)
     assert _parse([]).thinking == DEFAULT_THINKING
     assert thinking_extra_body(_parse([]).thinking) == DISABLE_THINKING
@@ -92,14 +92,14 @@ def test_thinking_choices_map_onto_the_vllm_toggle(choice, expected):
 
 
 def test_thinking_none_sends_no_field_at_all(monkeypatch):
-    # The escape hatch for a provider that rejects a body field it does not define.
+    # The escape hatch for a provider that rejects fields it does not know.
     args = _parse(["--thinking", "none"])
     sent = _capture_request(monkeypatch, extra_body=thinking_extra_body(args.thinking))
     assert sent["extra_body"] == {}
 
 
 def test_an_unknown_thinking_choice_raises():
-    # Silently sending no toggle would look like a slow model, not a typo.
+    # Quietly sending no toggle would look like a slow model, not a typo.
     with pytest.raises(ValueError, match="unknown thinking choice"):
         thinking_extra_body("enabled")
 
@@ -133,7 +133,7 @@ def _capture_request(monkeypatch, **extractor_kwargs) -> dict:
 
 
 def test_extractor_itself_defaults_to_no_extra_body(monkeypatch):
-    # The Extractor stays provider-neutral; choosing the toggle is the CLI's job.
+    # The Extractor stays provider-neutral. Choosing the toggle is the CLI's job.
     assert _capture_request(monkeypatch)["extra_body"] == {}
 
 
@@ -148,7 +148,7 @@ def test_temperature_defaults_to_zero_for_reproducibility(monkeypatch):
 
 
 def test_temperature_can_be_omitted_entirely():
-    # The Claude 5 family rejects the parameter at any value, so it has to go.
+    # The Claude models refuse the field at any value, so it has to go.
     assert _parse(["--temperature", "none"]).temperature is None
     assert _parse(["--temperature", "NONE"]).temperature is None
 
@@ -165,7 +165,7 @@ def test_a_blank_temperature_is_the_default(monkeypatch):
 
 
 def test_an_unparseable_temperature_raises():
-    # Reading a typo as "use the model's default" loses reproducibility silently.
+    # Reading a typo as "use the model's default" quietly loses repeatability.
     with pytest.raises(ValueError, match="must be a number"):
         parse_temperature("cold")
 
@@ -175,16 +175,16 @@ def test_temperature_is_sent_by_default(monkeypatch):
 
 
 def test_no_temperature_field_is_sent_when_it_is_none(monkeypatch):
-    # Not `temperature=None`: a provider that refuses the field refuses every value.
+    # Not `temperature=None`: a provider that refuses the field refuses any value.
     assert "temperature" not in _capture_request(monkeypatch, temperature=None)
 
 
 def test_serve_only_passes_options_create_app_accepts():
     """`serve` and `create_app` must not drift apart.
 
-    Nothing else catches it: the web tests inject a fake extractor, so a setting
-    threaded into the CLI but not into the factory only fails once a real server
-    starts -- which is to say, in the container and not in CI.
+    Nothing else catches this. The web tests use a fake extractor, so a setting added
+    to the CLI but not to the factory only fails when a real server starts, which
+    means in the container and not in CI.
     """
     tree = ast.parse(textwrap.dedent(inspect.getsource(_cmd_serve)))
     calls = [
@@ -200,7 +200,7 @@ def test_serve_only_passes_options_create_app_accepts():
     assert passed <= accepted, f"create_app rejects: {sorted(passed - accepted)}"
 
     # And every endpoint option the CLI offers reaches the factory, so a new flag
-    # cannot be silently dropped on the way to the server.
+    # cannot be quietly dropped on the way to the server.
     parser = argparse.ArgumentParser()
     _add_llm_options(parser)
     options = {"llm_base_url", "model", "thinking", "temperature"}

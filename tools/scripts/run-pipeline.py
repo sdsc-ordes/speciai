@@ -30,25 +30,25 @@ from dotenv import load_dotenv
 from speciai.extract import Extractor, parse_temperature, thinking_extra_body
 from speciai.pipeline import run as pipeline_run
 
-# Loaded at import: the endpoint settings below read the environment as they are
-# defined, and `.env` is where a deployment keeps them.
+# Loaded at import, because the endpoint settings below read the environment as they
+# are defined, and `.env` is where they live.
 load_dotenv()
 
 ROOT = Path(__file__).resolve().parents[2]
 IMAGES = ROOT / "examples" / "bugs"
 OUT_DIR = ROOT / "runs"
-# EPFL's RCP inference service, which every run in `runs/` was scored against. Point
-# LLM_BASE_URL / LLM_MODEL at another OpenAI-compatible provider to score it instead;
-# a model outside PRICES then reports a zero cost, since only RCP rates are known.
-# `or` rather than a getenv default throughout: compose and CI pass an unset variable
-# through as the empty string, which must not become the endpoint.
+# EPFL's RCP service, which every run in `runs/` was scored against. Point
+# LLM_BASE_URL and LLM_MODEL at another provider to score that one instead. Only RCP
+# rates are known, so a model missing from PRICES reports a cost of zero.
+# `or` rather than a getenv default: compose and CI pass an unset variable through as
+# "", which must not become the endpoint.
 BASE_URL = os.getenv("LLM_BASE_URL") or "https://inference-rcp.epfl.ch/v1"
 VARIANT = "llm-combined"
-# vLLM's thinking toggle. Defaults to off, which is how every run in `runs/` was
-# scored; "none" sends no such field. See speciai.extract.thinking_extra_body.
+# vLLM's thinking toggle. Off by default, which is how every run in `runs/` was
+# scored. "none" sends no such field. See speciai.extract.thinking_extra_body.
 EXTRA_BODY = thinking_extra_body(os.getenv("LLM_THINKING") or None)
-# Zero unless told otherwise, so a scored run stays reproducible. "none" omits the
-# field, which the Claude models require.
+# Zero unless told otherwise, so a scored run stays repeatable. "none" leaves the
+# field out, which the Claude models need.
 TEMPERATURE = parse_temperature(os.getenv("LLM_TEMPERATURE"))
 
 MODELS = [
