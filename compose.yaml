@@ -7,10 +7,16 @@ services:
       - "8000:8000"
     environment:
       # OpenAI-compatible endpoint serving a multimodal model. Set these in the
-      # environment or in a git-ignored .env file.
-      LLM_BASE_URL: ${LLM_BASE_URL:?set it to an OpenAI-compatible endpoint}
+      # environment or in a git-ignored .env file. The base URL defaults to EPFL's
+      # RCP inference service; the model id has no default that fits every provider.
+      LLM_BASE_URL: ${LLM_BASE_URL:-https://inference-rcp.epfl.ch/v1}
       LLM_MODEL: ${LLM_MODEL:?set it to the model id the endpoint serves}
       LLM_API_KEY: ${LLM_API_KEY:-}
+      # Empty means "off": no reasoning trace. "on" enables it on a vLLM-hosted
+      # model; "none" sends no such field, for a provider that rejects one.
+      LLM_THINKING: ${LLM_THINKING:-}
+      # "none" omits the parameter, which the Claude models require.
+      LLM_TEMPERATURE: ${LLM_TEMPERATURE:-}
     volumes:
       # Specimen images / exports shared with the host (git-ignored).
       - ./data:/app/data

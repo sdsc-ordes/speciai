@@ -93,12 +93,63 @@ reads the label pixels directly, with no OCR step. There is no in-process model:
 to run one locally, serve it yourself (vLLM, llama.cpp, Ollama) and point
 `--llm-base-url` at it.
 
-    uv run speciai extract --llm-base-url https://api.openai.com/v1 --model gpt-4o-mini specimen.jpg
+    uv run speciai extract --model Qwen/Qwen3.8-27B-fp8 specimen.jpg
 
-- `--llm-base-url` (required): base URL of the endpoint, e.g.
-  `http://localhost:8000/v1` for a locally served model.
-- `--model` (required): model id the endpoint serves.
-- `LLM_API_KEY` (env var, loaded from `.env`): API key sent to the endpoint.
+### Configuration
+
+Every option takes a flag or an environment variable, which `.env` can supply.
+The flag wins, then the variable, then the default -- so a deployment configures
+the endpoint once instead of on every invocation. An empty variable counts as
+unset.
+
+| Flag             | Variable          | Default                            |
+| ---------------- | ----------------- | ---------------------------------- |
+| `--llm-base-url` | `LLM_BASE_URL`    | `https://inference-rcp.epfl.ch/v1` |
+| `--model`        | `LLM_MODEL`       | none, and required                 |
+| (none)           | `LLM_API_KEY`     | unset                              |
+| `--thinking`     | `LLM_THINKING`    | `off`                              |
+| `--temperature`  | `LLM_TEMPERATURE` | `0.0`                              |
+
+The API key has no flag on purpose: a key in `argv` lands in the shell history
+and in every process listing on the machine.
+
+`--thinking off|on|none` sets vLLM's `enable_thinking`. It defaults to `off`,
+which is how every run in `runs/` was scored: a reasoning trace multiplies
+latency per image and buys nothing when the reply is a fixed schema. `none`
+sends no such field at all, for a provider that rejects one it does not define.
+
+`--temperature none` omits the temperature parameter entirely, for a model that
+refuses to be told. Zero is the default because it is what makes a run
+reproducible.
+
+### Providers
+
+Anything speaking the OpenAI chat-completions API with `response_format`
+JSON-schema structured outputs works. Verified request shapes:
+
+| Provider          | `LLM_BASE_URL`                                            | Extra settings               |
+| ----------------- | --------------------------------------------------------- | ---------------------------- |
+| EPFL RCP          | `https://inference-rcp.epfl.ch/v1`                        | none, this is the default    |
+| Anthropic         | `https://api.anthropic.com/v1`                            | `LLM_TEMPERATURE=none`       |
+| OpenAI            | `https://api.openai.com/v1`                               | `LLM_THINKING=none`          |
+| Gemini            | `https://generativelanguage.googleapis.com/v1beta/openai` | `LLM_THINKING=none`          |
+| Local vLLM/Ollama | `http://localhost:8000/v1`                                | `LLM_API_KEY` often unneeded |
+
+Two provider-specific request fields are worth knowing about, because a wrong
+one is an HTTP 400 and not a bad record.
+
+`temperature`: the Claude models reject it outright ("`temperature` is
+deprecated for this model"), hence `LLM_TEMPERATURE=none`. Every other provider
+here accepts it.
+
+`chat_template_kwargs`, which carries the thinking toggle: it is a vLLM
+extension. Anthropic's endpoint ignores it, verified 2026-08-28 by a request
+that passed validation with the field present. OpenAI and Gemini reject
+unrecognised body fields as a rule, which is what `LLM_THINKING=none` is for;
+that has not been confirmed against either service with a live key.
+
+An endpoint without structured-output support (some llama.cpp and Ollama builds)
+will fail at the parse step. Nothing in the pipeline works around that yet.
 
 ## QR codes
 
@@ -240,15 +291,14 @@ landing quietly in every record of the run.
 Install the dependencies and start the server:
 
     uv sync
-    just run serve --llm-base-url http://localhost:8000/v1 --model MODEL_ID
+    just run serve --model MODEL_ID
 
-`serve` requires the same `--llm-base-url` / `--model` options as `extract` (see
-[Extraction model](#extraction-model)).
+`serve` takes the same endpoint options as `extract`, flags or environment
+variables (see [Configuration](#configuration)).
 
 Or run it in a container (image: `tools/images/Containerfile`); `./data` is
-mounted at `/app/data`. Compose reads `LLM_BASE_URL`, `LLM_MODEL` and
-`LLM_API_KEY` from the environment or a git-ignored `.env`, and fails fast if
-the first two are unset:
+mounted at `/app/data`. Compose reads the endpoint variables from the
+environment or a git-ignored `.env`, and fails fast if `LLM_MODEL` is unset:
 
     docker compose up             # or: podman compose up / just image::serve
 

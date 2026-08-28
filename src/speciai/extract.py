@@ -30,12 +30,73 @@ from speciai.schema import ISO_DATE_PATTERN, SEX_VALUES, DarwinCoreRecord
 MAX_IMAGE_EDGE = 1536
 # Cap on the reply. The schema bounds the useful length; this only stops a model that
 # falls into a repetition loop from generating until its context runs out.
-MAX_TOKENS = 2048
+MAX_TOKENS = 2048*8
 # vLLM-hosted reasoning models (the Qwen3 series among them) emit a reasoning trace
 # before the answer unless told not to, which multiplies latency per image and buys
-# nothing when the reply is a fixed schema. Endpoints that reject the parameter --
-# api.openai.com does -- need this set to {}.
-NO_THINKING: dict = {"chat_template_kwargs": {"enable_thinking": False}}
+# nothing when the reply is a fixed schema. So the default is to tell them not to.
+#
+# ``chat_template_kwargs`` is a vLLM extension. Anthropic's OpenAI-compatible
+# endpoint ignores it (verified 2026-08-28: a request carrying it passes validation);
+# a provider that rejects an unknown body field instead needs ``"none"``, which sends
+# no extra body at all.
+DISABLE_THINKING: dict = {"chat_template_kwargs": {"enable_thinking": False}}
+ENABLE_THINKING: dict = {"chat_template_kwargs": {"enable_thinking": True}}
+NO_THINKING_FIELD: dict = {}
+THINKING_CHOICES: dict[str, dict] = {
+    "off": DISABLE_THINKING,
+    "on": ENABLE_THINKING,
+    "none": NO_THINKING_FIELD,
+}
+DEFAULT_THINKING = "off"
+
+
+# Zero temperature is what makes a run reproducible, and every self-hosted model and
+# the OpenAI and Gemini endpoints accept it. The Claude 5 family does not: it rejects
+# sampling parameters outright, so the field has to be omittable.
+DEFAULT_TEMPERATURE = 0.0
+OMIT_TEMPERATURE = "none"
+
+
+def parse_temperature(value: str | None) -> float | None:
+    """Read a temperature setting; ``"none"`` means omit the field entirely.
+
+    ``None`` or an empty value gives :data:`DEFAULT_TEMPERATURE`. Raise
+    ``ValueError`` for anything that is neither ``"none"`` nor a number, so a typo
+    is not silently read as "use the model's default".
+    """
+    if not value:
+        return DEFAULT_TEMPERATURE
+    if value.strip().lower() == OMIT_TEMPERATURE:
+        return None
+    try:
+        return float(value)
+    except ValueError:
+        raise ValueError(
+            f"temperature must be a number or {OMIT_TEMPERATURE!r}, not {value!r}"
+        ) from None
+
+
+def thinking_extra_body(choice: str | None) -> dict:
+    """Map a thinking choice onto the request's ``extra_body``.
+
+    ``None`` means :data:`DEFAULT_THINKING`: a configured nothing still asks the model
+    not to think, because a reasoning trace costs latency per image and the reply is a
+    fixed schema either way. ``"none"`` is how a caller sends no field at all, for a
+    provider that rejects one it does not define.
+
+    Raise ``ValueError`` for any other choice, rather than silently sending no toggle
+    to an endpoint the caller believed it had configured.
+    """
+    if choice is None:
+        choice = DEFAULT_THINKING
+    try:
+        return THINKING_CHOICES[choice]
+    except KeyError:
+        raise ValueError(
+            f"unknown thinking choice {choice!r}; "
+            f"use one of {', '.join(sorted(THINKING_CHOICES))}"
+        ) from None
+
 
 PROMPT = """You read the labels pinned with an insect specimen and return Darwin Core terms.
 
@@ -129,13 +190,16 @@ def image_data_url(image_path: Path) -> str:
 class Extractor:
     """Hold the endpoint configuration for repeated single-image extractions."""
 
-    def __init__(
+    def __init__(  # noqa: PLR0913 - each one is an independent endpoint setting
         self,
         base_url: str,
         model_id: str,
+        *,
         api_key: str | None = None,
         timeout: float | None = None,
         on_usage: Callable[[object], None] | None = None,
+        extra_body: dict | None = None,
+        temperature: float | None = DEFAULT_TEMPERATURE,
     ):
         """Configure the endpoint.
 
@@ -143,10 +207,19 @@ class Extractor:
         wake, and a hung endpoint must not hang a review job forever. ``on_usage``
         receives each reply's token usage, for the cost accounting in
         ``tools/scripts/run-pipeline.py``.
+
+        ``extra_body`` holds provider-specific request fields, such as the vLLM
+        thinking toggle from :func:`thinking_extra_body`. It defaults to empty
+        because a field one provider defines is a 400 from the next.
+
+        ``temperature`` of ``None`` omits the field, for a model that refuses to be
+        told (see :func:`parse_temperature`).
         """
         self._client = OpenAI(base_url=base_url, api_key=api_key, timeout=timeout)
         self._model_id = model_id
         self._on_usage = on_usage
+        self._extra_body = dict(extra_body or {})
+        self._temperature = temperature
 
     def run(
         self, image_path: Path, prompt_extra: list[str] | None = None
@@ -162,6 +235,12 @@ class Extractor:
         reading, so the caller can record a failed job rather than a blank record.
         """
         prompt = "\n".join([PROMPT, *(prompt_extra or [])])
+
+        # Omitted rather than passed as None: a provider that rejects the parameter
+        # rejects it whatever the value.
+        sampling = (
+            {} if self._temperature is None else {"temperature": self._temperature}
+        )
 
         completion = self._client.chat.completions.parse(
             model=self._model_id,
@@ -179,8 +258,8 @@ class Extractor:
             ],
             response_format=_LabelReading,
             max_tokens=MAX_TOKENS,
-            extra_body=NO_THINKING,
-            temperature=0.0,
+            extra_body=self._extra_body,
+            **sampling,
         )
 
         if self._on_usage is not None and completion.usage is not None:
