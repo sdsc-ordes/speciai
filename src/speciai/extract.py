@@ -30,7 +30,7 @@ from speciai.schema import ISO_DATE_PATTERN, SEX_VALUES, DarwinCoreRecord
 MAX_IMAGE_EDGE = 1536
 # Cap on the reply. The schema bounds the useful length; this only stops a model that
 # falls into a repetition loop from generating until its context runs out.
-MAX_TOKENS = 2048*8
+MAX_TOKENS = 2048 * 8
 # vLLM models like Qwen3 think out loud before answering unless told not to. That
 # costs time per image and adds nothing, because the reply is a fixed schema. So the
 # default is "off".
@@ -149,7 +149,7 @@ class _LabelReading(BaseModel):
     counterparts: normalising as it reads is the model's job, not a parser's.
     """
 
-    verbatimLabel: str | None = None
+    verbatimLabel: str = ""
     verbatimIdentification: str | None = None
     verbatimLocality: str | None = None
     verbatimCoordinates: str | None = None
@@ -266,4 +266,7 @@ class Extractor:
                 f"refusal={message.refusal!r} content={(message.content or '')[:200]!r}"
             )
 
-        return DarwinCoreRecord(**message.parsed.model_dump(exclude_none=True))
+        reading = message.parsed.model_dump(exclude_none=True)
+        if not reading["verbatimLabel"]:
+            del reading["verbatimLabel"]
+        return DarwinCoreRecord(**reading)
