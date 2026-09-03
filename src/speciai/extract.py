@@ -30,12 +30,67 @@ from speciai.schema import ISO_DATE_PATTERN, SEX_VALUES, DarwinCoreRecord
 MAX_IMAGE_EDGE = 1536
 # Cap on the reply. The schema bounds the useful length; this only stops a model that
 # falls into a repetition loop from generating until its context runs out.
-MAX_TOKENS = 2048
-# vLLM-hosted reasoning models (the Qwen3 series among them) emit a reasoning trace
-# before the answer unless told not to, which multiplies latency per image and buys
-# nothing when the reply is a fixed schema. Endpoints that reject the parameter --
-# api.openai.com does -- need this set to {}.
-NO_THINKING: dict = {"chat_template_kwargs": {"enable_thinking": False}}
+MAX_TOKENS = 2048 * 8
+# vLLM models like Qwen3 think out loud before answering unless told not to. That
+# costs time per image and adds nothing, because the reply is a fixed schema. So the
+# default is "off".
+#
+# Only vLLM understands this field. Anthropic ignores it (checked 2026-08-28), but a
+# provider that rejects unknown fields needs "none", which sends nothing.
+DISABLE_THINKING: dict = {"chat_template_kwargs": {"enable_thinking": False}}
+ENABLE_THINKING: dict = {"chat_template_kwargs": {"enable_thinking": True}}
+NO_THINKING_FIELD: dict = {}
+THINKING_CHOICES: dict[str, dict] = {
+    "off": DISABLE_THINKING,
+    "on": ENABLE_THINKING,
+    "none": NO_THINKING_FIELD,
+}
+DEFAULT_THINKING = "off"
+
+
+# Temperature zero is what makes a run repeatable. Most providers accept it, but the
+# Claude models refuse it, so it has to be possible to leave out.
+DEFAULT_TEMPERATURE = 0.0
+OMIT_TEMPERATURE = "none"
+
+
+def parse_temperature(value: str | None) -> float | None:
+    """Read a temperature setting. "none" means leave the field out.
+
+    Nothing set gives DEFAULT_TEMPERATURE. Raise ValueError for anything that is
+    neither "none" nor a number, so a typo does not quietly become the model's
+    own default.
+    """
+    if not value:
+        return DEFAULT_TEMPERATURE
+    if value.strip().lower() == OMIT_TEMPERATURE:
+        return None
+    try:
+        return float(value)
+    except ValueError:
+        raise ValueError(
+            f"temperature must be a number or {OMIT_TEMPERATURE!r}, not {value!r}"
+        ) from None
+
+
+def thinking_extra_body(choice: str | None) -> dict:
+    """Turn a thinking choice into the extra fields to send with the request.
+
+    Nothing set means DEFAULT_THINKING, so the model is still told not to think.
+    "none" sends no field at all, for a provider that rejects unknown ones.
+
+    Raise ValueError for anything else, so a typo is not read as "send nothing".
+    """
+    if choice is None:
+        choice = DEFAULT_THINKING
+    try:
+        return THINKING_CHOICES[choice]
+    except KeyError:
+        raise ValueError(
+            f"unknown thinking choice {choice!r}; "
+            f"use one of {', '.join(sorted(THINKING_CHOICES))}"
+        ) from None
+
 
 PROMPT = """You read the labels pinned with an insect specimen and return Darwin Core terms.
 
@@ -63,7 +118,8 @@ Rules:
 - verbatimCoordinates holds a grid reference as written; put its system (e.g.
   "Swiss CH1903", "UTM") in verbatimCoordinateSystem when the label names one.
 - verbatimLocality holds place names and administrative hierarchy only. Leave out
-  elevation and coordinates.
+  elevation and coordinates. Separate hierarchy levels with " : ", widest first:
+  "CH SH Merishausen : Chlosterfeld". A single place name takes no separator.
 - verbatimIdentification is the taxon name as written, including the author and year
   exactly as printed, brackets included: "Zygaena filipendulae (Linnaeus, 1758)".
 - infraspecificEpithet is the subspecies or form name when the label gives a trinomen.
@@ -72,6 +128,11 @@ Rules:
   never a reformatting of the same one.
 - typeStatus only carries an explicit designation ("holotype", "paratype"). Leave it
   null otherwise; do not describe the specimen.
+- preparations is the one field you read from the specimen and not from a label:
+  how it is mounted. "pinned" when the pin passes through the insect itself,
+  "carded" when it is glued to a card or paper rectangle carried on the pin,
+  "pointed" when it sits on a narrow paper triangle. Leave it null when the mount
+  is not visible; do not describe the specimen in any other way.
 """
 
 
@@ -88,7 +149,7 @@ class _LabelReading(BaseModel):
     counterparts: normalising as it reads is the model's job, not a parser's.
     """
 
-    verbatimLabel: str | None = None
+    verbatimLabel: str = ""
     verbatimIdentification: str | None = None
     verbatimLocality: str | None = None
     verbatimCoordinates: str | None = None
@@ -104,6 +165,7 @@ class _LabelReading(BaseModel):
     sex: Literal[SEX_VALUES] | None = None
     lifeStage: str | None = None
     typeStatus: str | None = None
+    preparations: str | None = None
 
 
 def image_data_url(image_path: Path) -> str:
@@ -122,13 +184,16 @@ def image_data_url(image_path: Path) -> str:
 class Extractor:
     """Hold the endpoint configuration for repeated single-image extractions."""
 
-    def __init__(
+    def __init__(  # noqa: PLR0913 - each one is a separate endpoint setting
         self,
         base_url: str,
         model_id: str,
+        *,
         api_key: str | None = None,
         timeout: float | None = None,
         on_usage: Callable[[object], None] | None = None,
+        extra_body: dict | None = None,
+        temperature: float | None = DEFAULT_TEMPERATURE,
     ):
         """Configure the endpoint.
 
@@ -136,10 +201,19 @@ class Extractor:
         wake, and a hung endpoint must not hang a review job forever. ``on_usage``
         receives each reply's token usage, for the cost accounting in
         ``tools/scripts/run-pipeline.py``.
+
+        ``extra_body`` carries fields only some providers understand, such as the
+        vLLM thinking toggle from ``thinking_extra_body``. It is empty by default,
+        because a field one provider defines is an error from the next.
+
+        A ``temperature`` of ``None`` leaves the field out, for a model that
+        refuses it. See ``parse_temperature``.
         """
         self._client = OpenAI(base_url=base_url, api_key=api_key, timeout=timeout)
         self._model_id = model_id
         self._on_usage = on_usage
+        self._extra_body = dict(extra_body or {})
+        self._temperature = temperature
 
     def run(
         self, image_path: Path, prompt_extra: list[str] | None = None
@@ -155,6 +229,12 @@ class Extractor:
         reading, so the caller can record a failed job rather than a blank record.
         """
         prompt = "\n".join([PROMPT, *(prompt_extra or [])])
+
+        # Left out rather than sent as None: a provider that rejects the field
+        # rejects it whatever the value.
+        sampling = (
+            {} if self._temperature is None else {"temperature": self._temperature}
+        )
 
         completion = self._client.chat.completions.parse(
             model=self._model_id,
@@ -172,8 +252,8 @@ class Extractor:
             ],
             response_format=_LabelReading,
             max_tokens=MAX_TOKENS,
-            extra_body=NO_THINKING,
-            temperature=0.0,
+            extra_body=self._extra_body,
+            **sampling,
         )
 
         if self._on_usage is not None and completion.usage is not None:
@@ -186,4 +266,7 @@ class Extractor:
                 f"refusal={message.refusal!r} content={(message.content or '')[:200]!r}"
             )
 
-        return DarwinCoreRecord(**message.parsed.model_dump(exclude_none=True))
+        reading = message.parsed.model_dump(exclude_none=True)
+        if not reading["verbatimLabel"]:
+            del reading["verbatimLabel"]
+        return DarwinCoreRecord(**reading)

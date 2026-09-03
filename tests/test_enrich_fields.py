@@ -65,6 +65,7 @@ def test_enrich_species_emits_only_declared_fields(monkeypatch):
             "name": "Papilio machaon",
             "authorship": "Linnaeus, 1758",
             "specificEpithet": "machaon",
+            "key": "1938324",
         },
         "classification": [
             {"rank": "KINGDOM", "name": "Animalia"},
@@ -96,6 +97,92 @@ def test_enrich_species_emits_only_declared_fields(monkeypatch):
     )
 
 
+def _gbif_returning(monkeypatch, payload):
+    """Point fetch_gbif_species at a canned response instead of the network."""
+    monkeypatch.setattr(
+        species_mod,
+        "requests",
+        SimpleNamespace(
+            get=lambda url, params=None: SimpleNamespace(
+                raise_for_status=lambda: None, json=lambda: payload
+            )
+        ),
+    )
+    species_mod.fetch_gbif_species.cache_clear()
+
+
+def test_a_subspecies_match_keeps_the_trinomen_and_the_classification(monkeypatch):
+    # A label naming a subspecies is GBIF's *best* case, not a failure: the match is
+    # exact and carries more than a species match would. Discarding it left records
+    # like "Carabus solieri bonnetianus" with no taxonomy at all.
+    _gbif_returning(
+        monkeypatch,
+        {
+            "usage": {
+                "rank": "SUBSPECIES",
+                "name": "Carabus solieri bonnetianus Colas, 1937",
+                "authorship": "Colas, 1937",
+                "specificEpithet": "solieri",
+                "infraspecificEpithet": "bonnetianus",
+                "key": "4470621",
+            },
+            "classification": [
+                {"rank": "KINGDOM", "name": "Animalia"},
+                {"rank": "GENUS", "name": "Carabus"},
+                {"rank": "SPECIES", "name": "Carabus solieri"},
+                {"rank": "SUBSPECIES", "name": "Carabus solieri bonnetianus"},
+            ],
+        },
+    )
+
+    result = enrich_species("Carabus solieri bonnetianus Colas, 1937")
+
+    assert result["scientificName"] == "Carabus solieri bonnetianus Colas, 1937"
+    assert result["taxonId"] == "4470621"
+    assert result["specificEpithet"] == "solieri"
+    assert result["genus"] == "Carabus"
+    # The label already read the infraspecific epithet; SPECIES_FIELDS is the
+    # module's whole output contract and does not include it.
+    assert set(result) <= set(SPECIES_FIELDS)
+
+
+def test_a_higher_rank_match_keeps_the_classification_only(monkeypatch):
+    # GBIF could not resolve the species but knows the genus is real. The family and
+    # order are worth keeping; the matched name is a genus, so it is not the taxon.
+    _gbif_returning(
+        monkeypatch,
+        {
+            "usage": {
+                "rank": "GENUS",
+                "name": "Campsomeris Guerin-Meneville, 1838",
+                "authorship": "Guerin-Meneville, 1838",
+                "key": "4681428",
+            },
+            "classification": [
+                {"rank": "KINGDOM", "name": "Animalia"},
+                {"rank": "ORDER", "name": "Hymenoptera"},
+                {"rank": "FAMILY", "name": "Scoliidae"},
+                {"rank": "GENUS", "name": "Campsomeris"},
+            ],
+        },
+    )
+
+    result = enrich_species("Campsomeris peregrina Lepeletier, 1845")
+
+    assert result["family"] == "Scoliidae"
+    assert result["genus"] == "Campsomeris"
+    assert "scientificName" not in result
+    assert "scientificNameAuthorship" not in result
+    # The key of a genus-level match identifies the genus, not this specimen.
+    assert "taxonId" not in result
+
+
+def test_no_match_at_all_yields_nothing(monkeypatch):
+    _gbif_returning(monkeypatch, {"diagnostics": {"matchType": "NONE"}})
+
+    assert enrich_species("Not A Real Name") == {}
+
+
 def test_parse_address_prefers_the_most_specific_locality(monkeypatch):
     # Nominatim returns whichever administrative levels fit the place; the finest
     # one must win rather than whichever the mapping happens to visit last.
@@ -115,18 +202,6 @@ def test_parse_address_prefers_the_most_specific_locality(monkeypatch):
     result = geo_mod.parse_address(loc)
 
     assert result["locality"] == "Montricher-village"
-    assert result["continent"] == "Europe"
-
-
-def test_parse_address_leaves_continent_blank_for_an_unknown_code():
-    # An unrecognised country code must not fail the whole enrichment.
-    loc = SimpleNamespace(
-        raw={"address": {"village": "Nowhere", "country_code": "zz"}},
-        latitude=0.0,
-        longitude=0.0,
-    )
-
-    assert geo_mod.parse_address(loc)["continent"] is None
 
 
 def test_nominatim_is_asked_for_english(monkeypatch):
@@ -151,7 +226,8 @@ def test_nominatim_is_asked_for_english(monkeypatch):
     assert seen["addressdetails"] is True
 
 
-def test_parse_address_uppercases_the_country_code():
+def test_parse_address_reports_the_code_as_nominatim_gave_it():
+    """Casing and the continent are postprocess rules; this maps an address, only."""
     loc = SimpleNamespace(
         raw={"address": {"village": "Merishausen", "country_code": "ch"}},
         latitude=47.76,
@@ -160,5 +236,5 @@ def test_parse_address_uppercases_the_country_code():
 
     result = geo_mod.parse_address(loc)
 
-    assert result["countryCode"] == "CH"  # ISO 3166-1 alpha-2 is uppercase
-    assert result["continent"] == "Europe"
+    assert result["countryCode"] == "ch"
+    assert "continent" not in result

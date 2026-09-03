@@ -5,7 +5,7 @@ from types import SimpleNamespace
 
 import pytest
 
-from speciai.pipeline import Stage, StageEvent
+from speciai.pipeline import Result, Stage, StageEvent
 from speciai.schema import DarwinCoreRecord
 from speciai.web import jobs as jobs_mod
 from speciai.web.jobs import JobRegistry, JobStatus, run_job
@@ -24,7 +24,10 @@ async def test_run_job_success(monkeypatch):
     def fake_run(image_path, extractor, on_event):
         on_event(StageEvent(stage=Stage.EXTRACT, status="started"))
         on_event(StageEvent(stage=Stage.ENRICH, status="finished"))
-        return DarwinCoreRecord(scientificName="Papilio machaon")
+        return Result(
+            DarwinCoreRecord(scientificName="Papilio machaon"),
+            frozenset({"typeStatus"}),
+        )
 
     monkeypatch.setattr(jobs_mod, "pipeline_run", fake_run)
     reg = JobRegistry()
@@ -39,6 +42,7 @@ async def test_run_job_success(monkeypatch):
         drained.append(item)
     assert job.status is JobStatus.DONE
     assert job.record.scientificName == "Papilio machaon"
+    assert job.derived == frozenset({"typeStatus"})
     # The full event sequence is delivered in order, before the sentinel.
     assert [e.stage for e in drained] == [Stage.EXTRACT, Stage.ENRICH]
     assert job.stage is Stage.ENRICH
@@ -50,7 +54,10 @@ async def test_run_job_tracks_stage_timing(monkeypatch):
         on_event(StageEvent(stage=Stage.EXTRACT, status="started"))
         on_event(StageEvent(stage=Stage.EXTRACT, status="finished"))
         on_event(StageEvent(stage=Stage.ENRICH, status="started"))
-        return DarwinCoreRecord(scientificName="Papilio machaon")
+        return Result(
+            DarwinCoreRecord(scientificName="Papilio machaon"),
+            frozenset({"typeStatus"}),
+        )
 
     monkeypatch.setattr(jobs_mod, "pipeline_run", fake_run)
     # Patch the name binding in jobs_mod, not the real `time` module -- asyncio

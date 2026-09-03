@@ -27,17 +27,32 @@ from pathlib import Path
 
 from dotenv import load_dotenv
 
-from speciai.extract import Extractor
+from speciai.extract import Extractor, parse_temperature, thinking_extra_body
 from speciai.pipeline import run as pipeline_run
+
+# Loaded at import, because the endpoint settings below read the environment as they
+# are defined, and `.env` is where they live.
+load_dotenv()
 
 ROOT = Path(__file__).resolve().parents[2]
 IMAGES = ROOT / "examples" / "bugs"
 OUT_DIR = ROOT / "runs"
-BASE_URL = "https://inference-rcp.epfl.ch/v1"
+# EPFL's RCP service, which every run in `runs/` was scored against. Point
+# LLM_BASE_URL and LLM_MODEL at another provider to score that one instead. Only RCP
+# rates are known, so a model missing from PRICES reports a cost of zero.
+# `or` rather than a getenv default: compose and CI pass an unset variable through as
+# "", which must not become the endpoint.
+BASE_URL = os.getenv("LLM_BASE_URL") or "https://inference-rcp.epfl.ch/v1"
 VARIANT = "llm-combined"
+# vLLM's thinking toggle. Off by default, which is how every run in `runs/` was
+# scored. "none" sends no such field. See speciai.extract.thinking_extra_body.
+EXTRA_BODY = thinking_extra_body(os.getenv("LLM_THINKING") or None)
+# Zero unless told otherwise, so a scored run stays repeatable. "none" leaves the
+# field out, which the Claude models need.
+TEMPERATURE = parse_temperature(os.getenv("LLM_TEMPERATURE"))
 
 MODELS = [
-    "Qwen/Qwen3.8-27B-fp8",
+    os.getenv("LLM_MODEL") or "Qwen/Qwen3.8-27B-fp8",
 ]
 
 SUFFIXES = {".jpg", ".jpeg", ".png", ".tif", ".tiff"}
@@ -164,6 +179,8 @@ def run_model(model: str, images: list[Path], media: dict[str, str]) -> tuple:
         api_key=os.getenv("LLM_API_KEY", ""),
         timeout=CLIENT_TIMEOUT,
         on_usage=tally,
+        extra_body=EXTRA_BODY,
+        temperature=TEMPERATURE,
     )
 
     started = time.perf_counter()
@@ -172,7 +189,9 @@ def run_model(model: str, images: list[Path], media: dict[str, str]) -> tuple:
         print(f"  [{index}/{len(images)}] {image.name}", file=sys.stderr, flush=True)
         try:
             # media_url is the key compare-models.py pairs records to sheet rows on.
-            record = pipeline_run(image, extractor, media_url=media.get(image.name))
+            record = pipeline_run(
+                image, extractor, media_url=media.get(image.name)
+            ).record
         except Exception as error:  # keep going through the rest of the batch
             print(f"    failed: {type(error).__name__}: {error}", file=sys.stderr)
             failures.append((model, image.name, type(error).__name__, str(error)))
@@ -198,7 +217,13 @@ def run_model(model: str, images: list[Path], media: dict[str, str]) -> tuple:
 
 def main() -> int:
     """Run every model over the photos and write the records and usage."""
-    load_dotenv()
+    print(f"endpoint -> {BASE_URL}", file=sys.stderr)
+    unpriced = [model for model in MODELS if model not in PRICES]
+    if unpriced:
+        print(
+            f"no RCP price for {', '.join(unpriced)}; cost reported as 0",
+            file=sys.stderr,
+        )
 
     media = read_manifest(IMAGES / "manifest.csv")
     images = sample_of(media)

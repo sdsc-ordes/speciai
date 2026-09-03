@@ -140,10 +140,35 @@
           throw new Error(err.detail || "Lookup failed")
         }
         const data = await resp.json()
+
+        // Re-derive replaces the whole section, blanking anything the fresh lookup
+        // no longer returns. A field whose value no longer matches what the
+        // pipeline put there was typed by the reviewer, so ask before discarding
+        // it rather than letting their work vanish silently.
+        const edited = Object.keys(data.fields)
+          .map((name) => document.querySelector(`[name="${name}"]`))
+          .filter(
+            (el) => el && el.value !== "" && el.value !== el.dataset.derived,
+          )
+        if (edited.length) {
+          const names = edited
+            .map(
+              (el) =>
+                el.closest(".field").querySelector(".field-name").textContent,
+            )
+            .join(", ")
+          const ok = confirm(
+            `Replace this section from a fresh lookup?\n\n` +
+              `Your own edits to ${names} will be overwritten.`,
+          )
+          if (!ok) return
+        }
+
         for (const [name, val] of Object.entries(data.fields)) {
           const el = document.querySelector(`[name="${name}"]`)
           if (!el) continue
           el.value = val
+          el.dataset.derived = val
           // Surface a freshly-filled field hidden inside a collapsed group.
           const details = el.closest("details.empties")
           if (details && val !== "") details.open = true

@@ -4,7 +4,11 @@
   <span class="field-label">
     <span class="field-name">{{ f.label }}</span>
     {% if f.role == 'verbatim' %}<span class="badge">As read</span>{% endif %}
-    {% if f.role == 'interpreted' %}<span class="badge badge-info"
+    {% if f.decided %}<span
+      class="badge badge-rule"
+      title="Set by a post-processing rule, not read from the label"
+      >Auto-set</span
+    >{% elif f.role == 'interpreted' %}<span class="badge badge-info"
       >Inferred</span
     >{% endif %} {% if f.derive %}
     <button
@@ -37,17 +41,28 @@
     {% endif %}
   </span>
   {% if f.type == 'number' %}
-  <input type="number" step="any" name="{{ f.name }}" value="{{ f.value }}" />
+  <input
+    type="number"
+    step="any"
+    name="{{ f.name }}"
+    value="{{ f.value }}"
+    data-derived="{{ f.value }}"
+  />
   {% elif f.type == 'select' %}
   <!-- prettier-ignore -->
-  <select name="{{ f.name }}">
+  <select name="{{ f.name }}" data-derived="{{ f.value }}">
     <option value="" {% if not f.value %}selected{% endif %}></option>
     {% for opt in f.options %}
     <option value="{{ opt }}" {% if f.value == opt %}selected{% endif %}>{{ opt }}</option>
     {% endfor %}
   </select>
   {% else %}
-  <input type="text" name="{{ f.name }}" value="{{ f.value }}" />
+  <input
+    type="text"
+    name="{{ f.name }}"
+    value="{{ f.value }}"
+    data-derived="{{ f.value }}"
+  />
   {% endif %} {% if f.error %}<span class="field-error">{{ f.error }}</span>{%
   endif %}
 </label>

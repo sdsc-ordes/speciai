@@ -23,6 +23,7 @@ SPECIES_FIELDS: tuple[str, ...] = (
     "scientificName",
     "scientificNameAuthorship",
     "specificEpithet",
+    "taxonId",
     "kingdom",
     "phylum",
     "order",
@@ -37,6 +38,11 @@ assert TAXONOMIC_RANKS <= set(SPECIES_FIELDS), (
 
 GBIF_MATCH_URL = "https://api.gbif.org/v2/species/match"
 
+# Ranks whose matched name is the organism itself, so its epithets and authorship
+# describe this specimen. A coarser match (GBIF calls it HIGHERRANK) names a genus
+# or a family instead, and only its classification is usable.
+NAMED_RANKS = frozenset({"SPECIES", "SUBSPECIES", "VARIETY", "FORM"})
+
 
 @lru_cache(maxsize=1024)
 def fetch_gbif_species(scientific_name: str) -> dict[str, str] | None:
@@ -44,29 +50,39 @@ def fetch_gbif_species(scientific_name: str) -> dict[str, str] | None:
 
     GBIF fuzzy-matches the whole name, so the caller passes the label's reading
     verbatim rather than pre-splitting it into genus and epithet.
-    Returns None if there is no species-level match."""
-    taxo = {}
+
+    Whatever rank matched, the classification is kept: a label naming a genus GBIF
+    cannot resolve to a species still yields the family and the order. The matched
+    name, its authorship and its epithet are only taken from a rank in
+    ``NAMED_RANKS``, since a coarser match names a higher taxon and not the
+    specimen. ``infraspecificEpithet`` is deliberately not emitted -- the label
+    supplies it, and ``SPECIES_FIELDS`` is what this module owns.
+
+    Returns None when GBIF matched nothing at all."""
     resp = requests.get(GBIF_MATCH_URL, params={"scientificName": scientific_name})
     resp.raise_for_status()
 
     data = resp.json()
-    try:
-        usage = data["usage"]
-    except KeyError:
-        return None
-    if usage["rank"] != "SPECIES":
+    usage = data.get("usage")
+    if usage is None:
         return None
 
-    taxo["scientificNameAuthorship"] = usage["authorship"]
-    taxo["scientificName"] = usage["name"]
-    taxo["specificEpithet"] = usage["specificEpithet"]
+    taxo = {}
+    if usage.get("rank") in NAMED_RANKS:
+        taxo["scientificNameAuthorship"] = usage.get("authorship")
+        taxo["scientificName"] = usage.get("name")
+        taxo["specificEpithet"] = usage.get("specificEpithet")
+        # The backbone key, which is what the sheet files as taxonId. It outlives a
+        # rename, where scientificName does not. Only for a named rank: the key of a
+        # genus-level match identifies the genus, not this specimen.
+        taxo["taxonId"] = usage.get("key")
 
-    for classif in data["classification"]:
+    for classif in data.get("classification", ()):
         rank = classif["rank"].lower()
         if rank in TAXONOMIC_RANKS:
             taxo[rank] = classif["name"]
 
-    return taxo
+    return {term: value for term, value in taxo.items() if value} or None
 
 
 def enrich_species(scientific_name: str) -> dict[str, str | None]:

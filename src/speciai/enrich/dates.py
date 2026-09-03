@@ -9,6 +9,8 @@ cannot express "some time in 2019" and invents a month and day instead.
 Formats measured across the sheet's 8411 verbatim event dates: two-digit years 68%,
 Roman-numeral months 50%, ranges 13%, German month names 12%. All four are handled;
 qualifiers ("Ende Juli", 0.8%) are not, and lose their day precision to the month.
+A verbatim date that is already ISO is read as one rather than as fragments:
+extraction does not always copy the label text, and the fragment reader is day-first.
 """
 
 from __future__ import annotations
@@ -129,6 +131,15 @@ def _unnamed(values: list[int], *, partial: bool) -> Fields:
 ISO = re.compile(r"^(\d{4})(?:-(\d{2})(?:-(\d{2}))?)?$")
 
 
+def iso_fields(text: str) -> Fields | None:
+    """Pull (day, month, year) out of an already-ISO date, or None if it is not one."""
+    matched = ISO.match(text.strip())
+    if matched is None:
+        return None
+    year, month, day = (int(part) if part else None for part in matched.groups())
+    return day, month, year
+
+
 def as_span(parts: Fields) -> tuple[date, date] | None:
     """Widen (day, month, year) into the interval it denotes, or None without a year."""
     day, month, year = parts
@@ -144,14 +155,31 @@ def as_span(parts: Fields) -> tuple[date, date] | None:
 def span(text: str) -> tuple[date, date] | None:
     """Return the interval a verbatim date covers, or None when unreadable.
 
+    An ISO date is read as itself, because :func:`_from_fragments` is day-first and
+    would split "1940-05-04" on its hyphens and take the 04 for the year. Extraction
+    does not always copy the label text, so verbatim terms do carry ISO dates.
+    """
+    if not text or not text.strip():
+        return None
+
+    # A trailing group outside 1-12 is the far end of a year range ("1934-38"), not a
+    # month, so it belongs to the fragment reader.
+    parts = iso_fields(text)
+    if parts is not None and (parts[1] is None or 1 <= parts[1] <= MONTHS_IN_YEAR):
+        return as_span(parts)
+
+    return _from_fragments(text.strip())
+
+
+def _from_fragments(text: str) -> tuple[date, date] | None:
+    """Read a date written the way labels write them: day first, ranges split on "-".
+
     A range's opening fragment usually omits what the closing one states -- in
     "23.VII.-2.VIII.42" only the second carries the year, and in "25.-26.Juli 1939"
     only the second carries month and year -- so missing parts are inherited from the
     end of the range before either side is widened.
     """
-    if not text or not text.strip():
-        return None
-    fragments = [part for part in RANGE.split(text.strip()) if part.strip()]
+    fragments = [part for part in RANGE.split(text) if part.strip()]
     if not fragments:
         return None
 
@@ -201,8 +229,7 @@ def widen_iso(value: str | None) -> str | None:
     """
     if not value:
         return None
-    matched = ISO.match(value.strip())
-    if matched is None:
+    parts = iso_fields(value)
+    if parts is None:
         return value
-    year, month, day = (int(part) if part else None for part in matched.groups())
-    return _rendered(as_span((day, month, year)))
+    return _rendered(as_span(parts))

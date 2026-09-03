@@ -138,7 +138,7 @@ def _completed_job(monkeypatch):
     monkeypatch.setattr(
         pipeline_mod,
         "enrich_record",
-        lambda doc: DarwinCoreRecord(
+        lambda doc, name=None: DarwinCoreRecord(
             scientificName="Papilio machaon", country="Switzerland"
         ),
     )
@@ -252,6 +252,16 @@ def test_sse_reconnect_after_completion(monkeypatch):
     assert '"stage":"extract"' not in second
 
 
+def test_review_marks_the_fields_post_processing_decided(monkeypatch):
+    with _completed_job(monkeypatch) as (client, job_id, _):
+        job = client.app.state.jobs.get(job_id)
+        job.derived = frozenset({"typeStatus"})
+        resp = client.get(f"/jobs/{job_id}/review")
+
+    assert resp.status_code == HTTPStatus.OK
+    assert "Auto-set" in resp.text
+
+
 def test_derive_locality_replaces_section(monkeypatch):
     monkeypatch.setitem(
         routes_mod.DERIVATIONS["locality"],
@@ -275,6 +285,26 @@ def test_derive_locality_replaces_section(monkeypatch):
     assert fields["decimalLatitude"] == "46.5946"
     # A field the lookup did not yield is blanked (the section is replaced).
     assert fields["stateProvince"] == ""
+
+
+def test_derive_applies_post_processing_to_the_lookup(monkeypatch):
+    # Nominatim answers lowercase and never names a continent; both come from a
+    # postprocess rule. Re-derive has to run those too, or the section it replaces
+    # would hold the raw response rather than what a full run produces.
+    monkeypatch.setitem(
+        routes_mod.DERIVATIONS["locality"],
+        "run",
+        lambda text: {"locality": "Merishausen", "countryCode": "ch"},
+    )
+    app = create_app(extractor=FakeExtractor())
+    with TestClient(app) as client:
+        resp = client.post(
+            "/derive/locality", data={"verbatimLocality": "CH SH Merishausen"}
+        )
+
+    fields = resp.json()["fields"]
+    assert fields["countryCode"] == "CH"
+    assert fields["continent"] == "Europe"
 
 
 def test_derive_identification(monkeypatch):
@@ -338,6 +368,7 @@ def test_review_renders_closed_vocabulary_as_select(monkeypatch):
     with _completed_job(monkeypatch) as (client, job_id, _):
         resp = client.get(f"/jobs/{job_id}/review")
     assert resp.status_code == HTTPStatus.OK
-    assert '<select name="sex">' in resp.text
+    # Attributes beyond the name are free to change; that it is a select is not.
+    assert '<select name="sex"' in resp.text
     for value in SEX_VALUES:
         assert f'<option value="{value}"' in resp.text

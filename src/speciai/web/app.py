@@ -14,7 +14,7 @@ from fastapi import FastAPI
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 
-from speciai.extract import Extractor
+from speciai.extract import DEFAULT_TEMPERATURE, Extractor
 from speciai.web.jobs import JobRegistry
 from speciai.web.routes import router
 
@@ -23,22 +23,32 @@ _TEMPLATES_DIR = _WEB_DIR / "templates"
 _STATIC_DIR = _WEB_DIR / "static"
 
 
-def create_app(
+def create_app(  # noqa: PLR0913 - each one is a separate endpoint setting
     extractor: Extractor | None = None,
+    *,
     llm_base_url: str = "",
     model_id: str = "",
     api_key: str | None = None,
+    extra_body: dict | None = None,
+    temperature: float | None = DEFAULT_TEMPERATURE,
 ) -> FastAPI:
     """Build the FastAPI app.
 
-    Pass ``extractor`` in tests to avoid calling the LLM; when omitted one is
-    built from ``llm_base_url`` / ``model_id`` / ``api_key`` on startup.
+    Pass ``extractor`` in tests to avoid calling the LLM. Without one, it is built on
+    startup from the endpoint settings below, which are the ``Extractor`` arguments
+    of the same name.
     """
 
     @asynccontextmanager
     async def lifespan(app: FastAPI):
         app.state.extractor = (
-            Extractor(base_url=llm_base_url, model_id=model_id, api_key=api_key)
+            Extractor(
+                base_url=llm_base_url,
+                model_id=model_id,
+                api_key=api_key,
+                extra_body=extra_body,
+                temperature=temperature,
+            )
             if extractor is None
             else extractor
         )

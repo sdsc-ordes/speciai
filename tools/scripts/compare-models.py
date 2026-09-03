@@ -97,15 +97,41 @@ def sheet_by_asset(path: Path) -> tuple[dict[str, dict[str, str | None]], set[st
     return unique, {asset for asset, rows in seen.items() if len(rows) > 1}
 
 
+# Schema columns no model can be judged on, so scoring them measures nothing and
+# drags every run's accuracy down by the same amount:
+#   collectionCode                 a collector's name and life dates, from a people
+#                                  authority; 75% of the sheet leaves it blank
+#   coordinateUncertaintyInMeters  a curator's estimate, stated on no label
+#   organismRemarks                free text with no counterpart on the specimen
+#   associatedReferences           a nahima URL the pipeline never sees
+#   otherCatalogNumbers            the sheet's junk drawer: "Unknown 1297 Baur",
+#                                  "Coordinates 35\u00b002'N 27\u00b029'E"
+#   verbatimCoordinates            filled on 2% of the sheet, so a batch grades it on
+#   verbatimCoordinateSystem       one or two photos and the rate is an anecdote
+UNSCORABLE = frozenset(
+    {
+        "collectionCode",
+        "verbatimCoordinates",
+        "verbatimCoordinateSystem",
+        "coordinateUncertaintyInMeters",
+        "organismRemarks",
+        "associatedReferences",
+        "otherCatalogNumbers",
+    }
+)
+
+
 def scorable_fields(headers: set[str]) -> list[str]:
     """Return the sheet columns the pipeline's schema can fill.
 
     Taken from the schema rather than from the records, so a field a model never
     emits counts as missing instead of dropping out of the comparison. Columns the
     pipeline cannot produce at all (habitat, taxonRank, ...) stay out, since
-    charging every model for those says nothing about the models.
+    charging every model for those says nothing about the models, and so do the
+    ``UNSCORABLE`` ones, for the same reason.
     """
-    return sorted((set(DarwinCoreRecord.model_fields) & headers) - {PHOTO_COLUMN})
+    fields = set(DarwinCoreRecord.model_fields) & headers
+    return sorted(fields - {PHOTO_COLUMN} - UNSCORABLE)
 
 
 def surname(value: str) -> str:
@@ -172,9 +198,11 @@ def write_details(
 ) -> Path:
     """Write every individual comparison, so a score can be traced back to its photos.
 
-    Comparisons blank on both sides are left out: they are the bulk of the rows and
-    say nothing. Values are written as produced, not normalized, since the point is
-    to show what the model actually said.
+    Comparisons blank on both sides are kept, marked ``empty``. They are the bulk of
+    the rows and never affect a score, but a reader following one photo across the
+    fields needs to see that neither side had an answer, rather than find the photo
+    silently absent. Values are written as produced, not normalized, since the point
+    is to show what the model actually said.
     """
     report = batch / "details.csv"
     with report.open("w", newline="", encoding="utf-8") as handle:
@@ -192,10 +220,9 @@ def write_details(
                     want = cell(truth[asset].get(field))
                     got = cell(record.get(field))
                     outcome = outcome_of(field, want, got)
-                    if outcome != "empty":
-                        writer.writerow(
-                            (name, asset, field, want or "", got or "", outcome, url)
-                        )
+                    writer.writerow(
+                        (name, asset, field, want or "", got or "", outcome, url)
+                    )
     return report
 
 

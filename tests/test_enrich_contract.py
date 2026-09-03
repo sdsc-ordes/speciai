@@ -37,10 +37,30 @@ def test_enrich_record_preserves_verbatim_and_adds_derived(monkeypatch):
     assert record.verbatimCoordinates == "46.5946, 6.3024"
     assert record.recordedBy == "R. Franken"
     assert record.sex == "Male"
-    # Authority output is merged in, with the datum describing those coordinates.
+    # Authority output is merged in. The datum describing those coordinates is a
+    # postprocess rule, not this stage's business.
     assert record.country == "Switzerland"
     assert record.genus == "Papilio"
-    assert record.geodeticDatum == "WGS84"
+
+
+def test_the_identification_lookup_can_be_asked_about_a_better_name(monkeypatch):
+    asked: list[str] = []
+
+    def spy(name):
+        asked.append(name)
+        return {"genus": "Stilbum"}
+
+    monkeypatch.setattr(enrich_mod, "_AUTHORITIES", (("verbatimIdentification", spy),))
+
+    record = enrich_mod.enrich_record(
+        DarwinCoreRecord(verbatimIdentification="Papilio machaon"),
+        identification="Stilbum calens",
+    )
+
+    assert asked == ["Stilbum calens"]
+    assert record.genus == "Stilbum"
+    # The override changes the question, never the evidence.
+    assert record.verbatimIdentification == "Papilio machaon"
 
 
 def test_enrich_record_skips_lookups_without_a_verbatim_source(monkeypatch):
@@ -88,29 +108,14 @@ def test_enrich_record_survives_a_failed_lookup(monkeypatch, caplog):
     assert "verbatimLocality lookup failed" in caplog.text
 
 
-def test_enrich_record_applies_collection_conventions(monkeypatch):
+def test_enrich_record_leaves_value_fixes_to_postprocess(monkeypatch):
+    """This stage resolves lookups; it must not normalise what it did not fetch."""
     monkeypatch.setattr(enrich_mod, "_AUTHORITIES", ())
 
     record = enrich_mod.enrich_record(
         DarwinCoreRecord(verbatimEventDate="20.6.1999", dateIdentified="2017")
     )
 
-    assert record.eventDate == "1999-06-20"
-    assert record.dateIdentified == "2017-01-01/2017-12-31"
-    assert record.typeStatus == "Not a Type"
-
-
-def test_enrich_record_widens_a_year_only_event_date(monkeypatch):
-    monkeypatch.setattr(enrich_mod, "_AUTHORITIES", ())
-
-    record = enrich_mod.enrich_record(DarwinCoreRecord(eventDate="1957"))
-
-    assert record.eventDate == "1957-01-01/1957-12-31"
-
-
-def test_enrich_record_keeps_a_stated_type_status(monkeypatch):
-    monkeypatch.setattr(enrich_mod, "_AUTHORITIES", ())
-
-    record = enrich_mod.enrich_record(DarwinCoreRecord(typeStatus="holotype"))
-
-    assert record.typeStatus == "holotype"
+    assert record.eventDate is None
+    assert record.dateIdentified == "2017"
+    assert record.typeStatus is None

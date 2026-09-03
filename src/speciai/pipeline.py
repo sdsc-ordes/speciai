@@ -7,7 +7,7 @@ raises on stage failure -- callers decide how to record the error.
 
 from __future__ import annotations
 
-from collections.abc import Callable
+from collections.abc import Callable, Mapping
 from dataclasses import dataclass
 from enum import Enum
 from pathlib import Path
@@ -15,6 +15,7 @@ from typing import Literal
 
 from speciai.enrich import enrich_record
 from speciai.extract import Extractor
+from speciai.postprocess import DEFAULT_CONSTANTS, postprocess
 from speciai.qr import apply_qr_fields, read_qr_codes, split_qr_payloads
 from speciai.schema import DarwinCoreRecord
 
@@ -29,6 +30,19 @@ QR_PROMPT_LINE = (
 class Stage(str, Enum):
     EXTRACT = "extract"
     ENRICH = "enrich"
+
+
+@dataclass(frozen=True)
+class Result:
+    """What one image produced: the record, and what the pipeline decided itself.
+
+    ``derived`` names the fields post-processing set rather than read off a label,
+    so a reviewer can be shown which values are the pipeline's own opinion. It is
+    empty when nothing needed correcting.
+    """
+
+    record: DarwinCoreRecord
+    derived: frozenset[str]
 
 
 @dataclass(frozen=True)
@@ -48,13 +62,19 @@ def run(
     extractor: Extractor,
     on_event: Callable[[StageEvent], None] = _noop,
     media_url: str | None = None,
-) -> DarwinCoreRecord:
+    constants: Mapping[str, str] | None = DEFAULT_CONSTANTS,
+) -> Result:
     """Run one image through both stages, emitting start/finish events.
 
-    QR codes on the image are decoded first. A code holding a structured record is
-    written onto the fields at the very end, over what the model read and what
-    enrichment looked up. Any other code becomes an extra prompt line. An image
-    without a code changes nothing.
+    QR codes on the image are decoded first. A code holding a structured record both
+    names the taxon the authorities are asked about and is written onto the fields at
+    the very end, over what the model read and what enrichment looked up. Any other
+    code becomes an extra prompt line. An image without a code changes nothing.
+
+    Post-processing runs once every producer has had its say -- so a date supplied
+    by a QR code is widened like any other -- and the collection's ``constants`` are
+    applied last of all. Pass ``None`` to skip that step; see
+    :mod:`speciai.postprocess`.
 
     ``media_url`` is the photo's canonical location, recorded as ``associatedMedia``
     so every record points back at the image it was read from -- it is the key the
@@ -73,7 +93,8 @@ def run(
     )
 
     on_event(StageEvent(stage=Stage.ENRICH, status="started"))
-    record = enrich_record(extracted)
+    record = enrich_record(extracted, qr_fields.get("scientificName"))
     on_event(StageEvent(stage=Stage.ENRICH, status="finished"))
 
-    return apply_qr_fields(record, qr_fields)
+    record, derived = postprocess(apply_qr_fields(record, qr_fields), constants)
+    return Result(record, derived)

@@ -6,8 +6,6 @@ from geopy.extra.rate_limiter import RateLimiter
 from geopy.geocoders import Nominatim
 from geopy.location import Location
 
-from speciai.enrich.continents import continent_name
-
 OSMField = str
 DWCTerm = str
 
@@ -38,9 +36,11 @@ OSM_ADDRESS_MAPPINGS: dict[DWCTerm, tuple[OSMField, ...]] = {
     "countryCode": ("country_code",),
 }
 
-# Every Darwin Core field ``enrich_locations`` can emit. This is the module's
-# output contract: callers (e.g. the review form's re-derive) key off it, and a
-# test asserts the helper never emits a key outside this set.
+# Every Darwin Core field the locality section owns. This is the module's output
+# contract: callers (e.g. the review form's re-derive) key off it, and a test
+# asserts the helper never emits a key outside this set. ``continent`` is listed
+# because the section owns it, though a postprocess rule rather than this module
+# derives it from the country code.
 LOCATION_FIELDS: tuple[DWCTerm, ...] = (
     "locality",
     "continent",
@@ -81,12 +81,6 @@ def parse_address(loc: Location) -> dict[str, str | None]:
         value = next((address[key] for key in osm_keys if key in address), None)
         if value is not None:
             out_address[term] = value
-
-    # Nominatim reports the code lowercase; ISO 3166-1 alpha-2 is uppercase.
-    code = out_address.get("countryCode")
-    if code is not None:
-        out_address["countryCode"] = code.upper()
-        out_address["continent"] = continent_name(code)
 
     return out_address
 
